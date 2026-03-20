@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Traffic Control - Authentication</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -22,6 +22,8 @@
             display: flex;
             height: 100vh;
             background-color: #0f172a;
+            /* Prevent pull-to-refresh on mobile */
+            overscroll-behavior-y: none;
         }
 
         .split-layout {
@@ -33,7 +35,6 @@
         /* Left Side: Image and Branding */
         .info-section {
             flex: 1;
-            /* Professional night traffic image from Unsplash with a blue/dark overlay */
             background: linear-gradient(rgba(15, 23, 42, 0.85), rgba(37, 99, 235, 0.6)), 
                         url('https://images.unsplash.com/photo-1494587351196-bbf5f29cff42?q=80&w=2071&auto=format&fit=crop') center/cover no-repeat;
             display: flex;
@@ -96,15 +97,18 @@
             padding: 40px;
             box-shadow: -10px 0 30px rgba(0,0,0,0.15);
             z-index: 10;
+            overflow-y: auto; /* Allow scrolling if keyboard opens on mobile */
         }
 
         .auth-container {
             width: 100%;
             max-width: 380px;
+            margin: auto;
         }
 
         .auth-header {
             margin-bottom: 35px;
+            text-align: center;
         }
 
         .auth-header h2 {
@@ -118,6 +122,12 @@
             margin: 0;
             font-size: 15px;
             color: var(--text-light);
+        }
+        
+        .mobile-logo {
+            display: none;
+            justify-content: center;
+            margin-bottom: 20px;
         }
 
         /* Tabs */
@@ -137,6 +147,8 @@
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 15px;
+            /* Prevent tap highlight on mobile */
+            -webkit-tap-highlight-color: transparent;
         }
 
         .tab:hover { color: var(--primary-color); }
@@ -180,12 +192,15 @@
             padding: 14px 16px;
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            font-size: 15px;
+            /* Font size 16px prevents iOS auto-zoom on focus */
+            font-size: 16px; 
             font-family: inherit;
             color: var(--text-color);
             background-color: #f8fafc;
             transition: all 0.2s ease;
             box-sizing: border-box;
+            /* Remove default iOS styling */
+            -webkit-appearance: none;
         }
 
         .input-group input:focus, .input-group select:focus {
@@ -197,16 +212,16 @@
 
         .input-group select {
             cursor: pointer;
-            appearance: none;
             background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
             background-repeat: no-repeat;
             background-position: right 1rem center;
             background-size: 1.2em;
+            padding-right: 2.5rem;
         }
 
         .btn-submit {
             width: 100%;
-            padding: 14px;
+            padding: 16px; /* Slightly taller for easier tapping */
             background-color: var(--primary-color);
             color: white;
             border: none;
@@ -218,6 +233,7 @@
             margin-top: 10px;
             font-family: inherit;
             box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+            -webkit-tap-highlight-color: transparent;
         }
 
         .btn-submit:hover {
@@ -226,7 +242,10 @@
             box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3);
         }
 
-        .btn-submit:active { transform: translateY(0); }
+        .btn-submit:active { 
+            transform: translateY(0); 
+            background-color: #1e40af;
+        }
 
         .message {
             margin-top: 20px;
@@ -243,9 +262,25 @@
         .message.success { background-color: #ecfdf5; color: var(--success-color); border: 1px solid #a7f3d0; }
         .message.loading { background-color: #eff6ff; color: var(--primary-color); border: 1px solid #bfdbfe; }
 
+        /* --- Mobile Responsive Styles --- */
         @media (max-width: 900px) {
-            .info-section { display: none; }
-            .auth-section { flex: 1; }
+            .info-section { 
+                display: none; /* Hide the big image on small screens */
+            }
+            .auth-section { 
+                flex: 1; 
+                padding: 20px;
+            }
+            .auth-container {
+                max-width: 100%;
+                margin-top: 20px;
+            }
+            .mobile-logo {
+                display: flex;
+            }
+            .auth-header h2 {
+                font-size: 26px;
+            }
         }
     </style>
 </head>
@@ -253,7 +288,7 @@
 
 <div class="split-layout">
     
-    <!-- Left Section: Branding & Image -->
+    <!-- Left Section: Branding & Image (Desktop Only) -->
     <div class="info-section">
         <div class="info-content">
             <span class="badge">System Access</span>
@@ -266,9 +301,18 @@
     <div class="auth-section">
         <div class="auth-container">
             
+            <div class="mobile-logo">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <path d="M12 18v-6"></path>
+                    <path d="M9 15h6"></path>
+                </svg>
+            </div>
+
             <div class="auth-header">
-                <h2>Welcome Back</h2>
-                <p>Please enter your credentials to access the portal.</p>
+                <h2 id="header-title">Welcome Back</h2>
+                <p id="header-desc">Please enter your credentials to access the portal.</p>
             </div>
 
             <div class="tabs">
@@ -281,7 +325,7 @@
             <div id="loginSection" class="form-section active">
                 <div class="input-group">
                     <label for="loginUsername">Username</label>
-                    <input type="text" id="loginUsername" placeholder="Enter your username" autocomplete="off">
+                    <input type="text" id="loginUsername" placeholder="Enter your username" autocomplete="off" autocapitalize="off" autocorrect="off">
                 </div>
                 <div class="input-group">
                     <label for="loginPassword">Password</label>
@@ -295,7 +339,7 @@
             <div id="registerSection" class="form-section">
                 <div class="input-group">
                     <label for="regUsername">Username</label>
-                    <input type="text" id="regUsername" placeholder="Choose a unique username" autocomplete="off">
+                    <input type="text" id="regUsername" placeholder="Choose a unique username" autocomplete="off" autocapitalize="off" autocorrect="off">
                 </div>
                 <div class="input-group">
                     <label for="regPassword">Password</label>
@@ -311,7 +355,7 @@
                 </div>
                 <div class="input-group">
                     <label for="regRegNumber">Registration Number</label>
-                    <input type="text" id="regRegNumber" placeholder="e.g., MH-12-AB-1234" autocomplete="off">
+                    <input type="text" id="regRegNumber" placeholder="e.g., MH-12-AB-1234" autocomplete="off" autocapitalize="characters">
                 </div>
                 <button class="btn-submit" onclick="register()">Register Vehicle</button>
                 <div id="registerMessage" class="message"></div>
@@ -323,14 +367,14 @@
 </div>
 
 <script>
-    const API_BASE = '/api/users';
+    const API_BASE = 'http://localhost:8080/api/users';
 
     function switchTab(tabId) {
         const tabs = document.querySelectorAll('.tab');
         const sections = document.querySelectorAll('.form-section');
         const indicator = document.getElementById('tabIndicator');
-        const headerTitle = document.querySelector('.auth-header h2');
-        const headerDesc = document.querySelector('.auth-header p');
+        const headerTitle = document.getElementById('header-title');
+        const headerDesc = document.getElementById('header-desc');
         
         tabs.forEach(t => t.classList.remove('active'));
         sections.forEach(s => s.classList.remove('active'));
@@ -362,6 +406,9 @@
     async function login() {
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
+        
+        // Hide keyboard on mobile
+        document.activeElement.blur();
         
         if (!username || !password) {
             showMessage('loginMessage', 'error', 'Please enter both username and password.');
@@ -395,6 +442,9 @@
         const password = document.getElementById('regPassword').value;
         const vehicleType = document.getElementById('regVehicleType').value;
         const registrationNumber = document.getElementById('regRegNumber').value;
+
+        // Hide keyboard on mobile
+        document.activeElement.blur();
 
         if (!username || !password || !registrationNumber) {
             showMessage('registerMessage', 'error', 'Please fill out all required fields.');
