@@ -3,121 +3,213 @@ package org.SmartEmergencyTrafficControl.service;
 import org.SmartEmergencyTrafficControl.model.Location;
 import org.SmartEmergencyTrafficControl.model.SignalStatus;
 import org.SmartEmergencyTrafficControl.model.TrafficLight;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class TrafficService {
 
     private final List<TrafficLight> trafficLights = new ArrayList<>();
+    private List<Location> route = new ArrayList<>();
     
-    // Default thresholds
-    private static final double HIGH_DENSITY_THRESHOLD = 800.0; // Clear traffic earlier
-    private static final double LOW_DENSITY_THRESHOLD = 300.0;  // Standard
+    private static final double YELLOW_THRESHOLD = 800.0;
+    private static final double GREEN_THRESHOLD = 500.0;
     
-    // Store the previous distance of the ambulance to each traffic light to determine direction
     private final Map<String, Double> previousDistances = new HashMap<>();
     
-    // Timestamp of the last processed location update to prevent out-of-order processing
     private long lastLocationTimestamp = 0;
 
+    private final Random random = new Random();
+
     public TrafficService() {
-        // Initial dummy data (will be overwritten by frontend)
         addLight("1", "Demo Light 1", 30.271591, 77.048158);
     }
 
+    public void setRoute(List<Location> route) {
+        this.route = route;
+        System.out.println("Route with " + route.size() + " points has been set.");
+    }
+
     private void addLight(String id, String name, double lat, double lon) {
-        TrafficLight light = new TrafficLight(id, name, new Location(lat, lon), SignalStatus.RED);
-        light.setTrafficDensity("LOW"); // Default
+        TrafficLight light = new TrafficLight(id, name, new Location(lat, lon), getRandomSignalStatus());
+        light.setTrafficDensity("LOW");
+        initTimer(light);
         trafficLights.add(light);
     }
 
-    // --- New Methods for Dynamic Route Support ---
+    private SignalStatus getRandomSignalStatus() {
+        SignalStatus[] statuses = {SignalStatus.RED, SignalStatus.YELLOW, SignalStatus.GREEN};
+        return statuses[random.nextInt(statuses.length)];
+    }
+
+    private void initTimer(TrafficLight light) {
+        int maxTimer = getTimerForStatus(light.getStatus());
+        // Randomize the starting timer so signals are completely out of sync
+        int randomStart = random.nextInt(maxTimer) + 1; 
+        light.setTimer(randomStart);
+        light.setNormalTimer(randomStart);
+        light.setNormalStatus(light.getStatus());
+        light.setOverridden(false);
+    }
+
+    private int getTimerForStatus(SignalStatus status) {
+        switch (status) {
+            case RED: return 30;
+            case GREEN: return 30;
+            case YELLOW: return 5;
+            default: return 30;
+        }
+    }
 
     public void resetTrafficLights() {
         trafficLights.clear();
         previousDistances.clear();
-        System.out.println("All traffic lights cleared.");
+        route.clear();
+        System.out.println("All traffic lights and route cleared.");
     }
 
     public void addTrafficLightsBatch(List<TrafficLight> newLights) {
         for (TrafficLight light : newLights) {
-            if (light.getId() == null) {
-                light.setId(UUID.randomUUID().toString());
-            }
-            if (light.getStatus() == null) {
-                light.setStatus(SignalStatus.RED);
-            }
-            if (light.getTrafficDensity() == null) {
-                light.setTrafficDensity("LOW");
-            }
+            if (light.getId() == null) light.setId(UUID.randomUUID().toString());
+            
+            // Force randomize status (frontend defaults to RED, so we override it here)
+            light.setStatus(getRandomSignalStatus());
+            
+            if (light.getTrafficDensity() == null) light.setTrafficDensity("LOW");
+            initTimer(light);
             trafficLights.add(light);
         }
         System.out.println("Added " + newLights.size() + " new traffic lights from route.");
     }
 
-    // ---------------------------------------------
-
-    public void updateAmbulanceLocation(Location ambulanceLocation) {
-        // Check for out-of-order updates
-        if (ambulanceLocation.getTimestamp() > 0) {
-            if (ambulanceLocation.getTimestamp() < lastLocationTimestamp) {
-                return;
-            }
-            lastLocationTimestamp = ambulanceLocation.getTimestamp();
-        }
-
+    @Scheduled(fixedRate = 1000)
+    public void updateTimers() {
         for (TrafficLight light : trafficLights) {
-            double currentDistance = calculateDistance(ambulanceLocation, light.getLocation());
-            
-            // Determine dynamic threshold based on density
-            double effectiveThreshold = "HIGH".equalsIgnoreCase(light.getTrafficDensity()) 
-                                        ? HIGH_DENSITY_THRESHOLD 
-                                        : LOW_DENSITY_THRESHOLD;
-
-            if (currentDistance <= effectiveThreshold) {
-                if (light.getStatus() != SignalStatus.GREEN) {
-                    light.setStatus(SignalStatus.GREEN);
-                    System.out.println("Emergency! Ambulance approaching " + light.getName() + 
-                                       " (Density: " + light.getTrafficDensity() + "). " +
-                                       "Distance: " + currentDistance + "m -> GREEN");
-                }
-            } else {
-                // Turn RED if passed (distance increasing or simply outside range)
-                // Simple logic: if outside range, turn RED.
-                if (light.getStatus() == SignalStatus.GREEN) {
-                    light.setStatus(SignalStatus.RED);
-                    System.out.println("Ambulance passed " + light.getName() + ". Distance: " + currentDistance + "m -> RED");
+            int normalTimer = light.getNormalTimer() - 1;
+            if (normalTimer <= 0) {
+                switch (light.getNormalStatus()) {
+                    case GREEN:
+                        light.setNormalStatus(SignalStatus.YELLOW);
+                        normalTimer = 5;
+                        break;
+                    case YELLOW:
+                        light.setNormalStatus(SignalStatus.RED);
+                        normalTimer = 30;
+                        break;
+                    case RED:
+                        light.setNormalStatus(SignalStatus.GREEN);
+                        normalTimer = 30;
+                        break;
                 }
             }
-            previousDistances.put(light.getId(), currentDistance);
+            light.setNormalTimer(normalTimer);
+
+            if (!light.isOverridden()) {
+                light.setStatus(light.getNormalStatus());
+                light.setTimer(light.getNormalTimer());
+            } else {
+                light.setTimer(0);
+            }
         }
     }
 
-    public SignalStatus getSignalStatus() {
-        return trafficLights.isEmpty() ? SignalStatus.RED : trafficLights.get(0).getStatus();
+    public void updateAmbulanceLocation(Location ambulanceLocation) {
+        if (ambulanceLocation.getTimestamp() > 0) {
+            if (ambulanceLocation.getTimestamp() < lastLocationTimestamp) return;
+            lastLocationTimestamp = ambulanceLocation.getTimestamp();
+        }
+
+        if (route.isEmpty()) {
+            return; 
+        }
+
+        int closestPointIndex = findClosestPointOnRoute(ambulanceLocation, route);
+
+        for (TrafficLight light : trafficLights) {
+            int lightRouteIndex = findClosestPointOnRoute(light.getLocation(), route);
+            double distanceFromLightToRoute = calculateDistance(light.getLocation(), route.get(lightRouteIndex));
+            
+            if (distanceFromLightToRoute > 50 || lightRouteIndex < closestPointIndex) {
+                double linearDistance = calculateDistance(ambulanceLocation, light.getLocation());
+                if (linearDistance > 50) {
+                    restoreNormalState(light, linearDistance);
+                    continue;
+                }
+            }
+
+            double pathDistance = calculateDistanceAlongRoute(closestPointIndex, lightRouteIndex);
+            double ambulanceOffset = calculateDistance(ambulanceLocation, route.get(closestPointIndex));
+            double effectiveDistance = pathDistance + ambulanceOffset;
+
+            if (effectiveDistance <= YELLOW_THRESHOLD) {
+                if (effectiveDistance <= GREEN_THRESHOLD) {
+                    if (light.getStatus() != SignalStatus.GREEN) {
+                        light.setStatus(SignalStatus.GREEN);
+                        light.setOverridden(true);
+                        System.out.println("Emergency! Ambulance approaching " + light.getName() + ". Path Distance: " + effectiveDistance + "m -> GREEN");
+                    }
+                } else {
+                    if (light.getStatus() != SignalStatus.YELLOW && light.getStatus() != SignalStatus.GREEN) {
+                        light.setStatus(SignalStatus.YELLOW);
+                        light.setOverridden(true);
+                        System.out.println("Emergency warning! Ambulance approaching " + light.getName() + ". Path Distance: " + effectiveDistance + "m -> YELLOW");
+                    }
+                }
+            } else {
+                restoreNormalState(light, effectiveDistance);
+            }
+        }
+    }
+
+    private void restoreNormalState(TrafficLight light, double distance) {
+        if (light.isOverridden()) {
+            light.setOverridden(false);
+            light.setStatus(light.getNormalStatus());
+            light.setTimer(light.getNormalTimer());
+            System.out.println("Ambulance passed or off route for " + light.getName() + ". Distance: " + distance + "m -> Restored to normal");
+        }
+    }
+
+    private double calculateDistanceAlongRoute(int startIndex, int endIndex) {
+        if (startIndex < 0 || endIndex >= route.size() || startIndex > endIndex) return 0.0;
+        double dist = 0.0;
+        for (int i = startIndex; i < endIndex; i++) {
+            dist += calculateDistance(route.get(i), route.get(i + 1));
+        }
+        return dist;
+    }
+
+    private int findClosestPointOnRoute(Location point, List<Location> routePoints) {
+        if (routePoints.isEmpty()) return -1;
+
+        int closestIndex = 0;
+        double minDistance = Double.MAX_VALUE;
+
+        for (int i = 0; i < routePoints.size(); i++) {
+            double distance = calculateDistance(point, routePoints.get(i));
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestIndex = i;
+            }
+        }
+        return closestIndex;
     }
 
     public List<TrafficLight> getAllTrafficLights() {
         return trafficLights;
     }
 
+    public SignalStatus getSignalStatus() {
+        return trafficLights.isEmpty() ? SignalStatus.RED : trafficLights.get(0).getStatus();
+    }
+
     public TrafficLight addTrafficLight(TrafficLight light) {
-        if (light.getId() == null) {
-            light.setId(UUID.randomUUID().toString());
-        }
-        if (light.getStatus() == null) {
-            light.setStatus(SignalStatus.RED);
-        }
-        if (light.getTrafficDensity() == null) {
-            light.setTrafficDensity("LOW");
-        }
+        if (light.getId() == null) light.setId(UUID.randomUUID().toString());
+        light.setStatus(getRandomSignalStatus());
+        if (light.getTrafficDensity() == null) light.setTrafficDensity("LOW");
+        initTimer(light);
         trafficLights.add(light);
         return light;
     }
@@ -128,7 +220,7 @@ public class TrafficService {
         }
         System.out.println("Traffic Density set to " + density + " for all lights.");
     }
-    
+
     public void setTrafficDensityForLight(String lightId, String density) {
         for (TrafficLight light : trafficLights) {
             if (light.getId().equals(lightId)) {
@@ -138,12 +230,11 @@ public class TrafficService {
             }
         }
     }
-    
+
     public void randomizeTrafficDensities() {
         String[] densities = {"LOW", "MEDIUM", "HIGH"};
-        Random rand = new Random();
         for (TrafficLight light : trafficLights) {
-            String density = densities[rand.nextInt(densities.length)];
+            String density = densities[random.nextInt(densities.length)];
             light.setTrafficDensity(density);
         }
     }
