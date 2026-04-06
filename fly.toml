@@ -1,0 +1,23 @@
+# fly.toml app configuration file generated for smart-traffic-control
+
+app = "smart-traffic-control" # Replace with your preferred app name
+primary_region = "iad" # Replace with your preferred region
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  SPRING_JPA_HIBERNATE_DDL_AUTO = "update"
+  # You will need to set the database variables using `fly secrets set`
+  # SPRING_DATASOURCE_URL="jdbc:mysql://<your-db-host>:3306/<your-db-name>"
+  # SPRING_DATASOURCE_USERNAME="<your-db-user>"
+  # SPRING_DATASOURCE_PASSWORD="<your-db-password>"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]

@@ -18,12 +18,12 @@ WORKDIR /app
 # Copy JAR from builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Railway provides PORT at runtime; default to 8080 locally
+# Fly.io provides PORT at runtime; default to 8080 locally
 ENV PORT=8080
 EXPOSE ${PORT}
 
-# Database config comes from Railway environment variables at runtime
+# Database config comes from Fly.io environment variables at runtime
 ENV SPRING_JPA_HIBERNATE_DDL_AUTO=update
 
-# Run the application with Railway's dynamic port
+# Run the application with Fly.io's dynamic port
 ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT} -jar app.jar"]

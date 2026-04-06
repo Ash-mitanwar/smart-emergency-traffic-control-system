@@ -367,7 +367,8 @@
 </div>
 
 <script>
-    const API_BASE = 'http://localhost:8080/api/users';
+    // FIX: Using relative paths so it works automatically on localhost and on Render/Fly.io
+    const API_BASE = '/api/users';
 
     function switchTab(tabId) {
         const tabs = document.querySelectorAll('.tab');
@@ -473,7 +474,7 @@
                 showMessage('registerMessage', 'error', errText || 'Registration failed. Please try again.');
             }
         } catch (error) {
-            showMessage('registerMessage', 'error', 'Unable to connect to the server.');
+            showMessage('registerMessage', 'error', 'Unable to connect to the server. Check internet connection.');
         }
     }
 </script>
