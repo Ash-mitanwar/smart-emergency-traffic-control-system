@@ -70,4 +70,10 @@ public class TrafficController {
     public void addTrafficLightsBatch(@RequestBody List<TrafficLight> lights) {
         trafficService.addTrafficLightsBatch(lights);
     }
+
+    // Set the full route for path-based distance calculation
+    @PostMapping("/route")
+    public void setRoute(@RequestBody List<Location> routePoints) {
+        trafficService.setRoute(routePoints);
+    }
 }
