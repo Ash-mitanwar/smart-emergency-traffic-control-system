@@ -71,9 +71,5 @@ public class TrafficController {
         trafficService.addTrafficLightsBatch(lights);
     }
 
-    // Set the full route for path-based distance calculation
-    @PostMapping("/route")
-    public void setRoute(@RequestBody List<Location> routePoints) {
-        trafficService.setRoute(routePoints);
-    }
+    // REMOVED /route mapping from here because it conflicts with RouteController
 }
