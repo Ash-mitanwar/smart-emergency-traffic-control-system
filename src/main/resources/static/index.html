@@ -2,866 +2,256 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Traffic Control - Real World Mode</title>
-    
-    <!-- Leaflet Map Library -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Traffic Control</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Leaflet Routing Machine -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-
-    <!-- Leaflet Geocoder -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <style>
-        body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; background-color: #f8f9fa; }
-        
-        #main-container { display: flex; height: 100%; width: 100%; position: relative; }
-
-        #map { flex: 1; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
-        
-        /* Mobile Hamburger Button */
-        #mobile-menu-btn {
-            display: none;
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1003;
-            background: white;
-            border: none;
-            border-radius: 8px;
-            width: 45px;
-            height: 45px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            cursor: pointer;
-            font-size: 24px;
-            line-height: 45px;
-            text-align: center;
-        }
-
-        .sidebar {
-            width: 340px;
-            background: #fff;
-            padding: 20px;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            z-index: 1002;
-            overflow-y: auto;
-            position: relative;
-            transition: transform 0.3s ease;
-        }
-        
-        /* Google Maps Style Search Box */
-        #search-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1001;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            background: transparent;
-            pointer-events: none; /* Let clicks pass through empty space */
-        }
-
-        .search-box-wrapper {
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            padding: 0;
-            width: 350px;
-            display: flex;
-            align-items: center;
-            overflow: hidden;
-            pointer-events: auto; /* Re-enable clicks for the search box */
-        }
-
+        body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+        #main-container { display: flex; height: 100%; }
+        .sidebar { width: 300px; background: #fff; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 15px; z-index: 1000; overflow-y: auto; }
+        #map { flex: 1; height: 100%; position: relative; }
+        #search-container { position: absolute; top: 20px; left: 20px; z-index: 1001; display: flex; flex-direction: column; gap: 10px; }
+        .search-box-wrapper { background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); width: 350px; display: flex; align-items: center; overflow: hidden; }
         .leaflet-control-geocoder { box-shadow: none; border: none; margin: 0; width: 100%; }
-        .leaflet-control-geocoder-form { width: 100%; }
-        .leaflet-control-geocoder-form input {
-            width: 100%; border: none; padding: 12px 15px; font-size: 15px; outline: none; height: 45px;
-        }
+        .leaflet-control-geocoder-form input { width: 100%; border: none; padding: 12px 15px; font-size: 15px; outline: none; height: 45px; }
         .leaflet-control-geocoder-icon { display: none; }
-        
+        #instruction-panel { background: rgba(255,255,255,0.9); padding: 8px 12px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); font-size: 13px; color: #5f6368; width: 326px; text-align: center; }
         h2 { margin-top: 0; color: #202124; font-size: 1.1em; font-weight: 500; }
-        
-        .btn {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 14px;
-            width: 100%;
-            margin-bottom: 8px;
-            transition: 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .btn-primary { background: #1a73e8; color: white; }
-        .btn-primary:hover { background: #1557b0; }
-        .btn-danger { background: #d93025; color: white; }
-        .btn-success { background: #1e8e3e; color: white; }
-        .btn-warning { background: #f39c12; color: white; }
-        .btn-secondary { background: #f1f3f4; color: #3c4043; border: 1px solid #dadce0; box-shadow: none; }
-        .btn-secondary:hover { background: #e8eaed; }
-        
-        .log-panel {
-            background: #f1f3f4;
-            color: #3c4043;
-            padding: 10px;
-            border-radius: 8px;
-            flex-grow: 1;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 12px;
-            min-height: 100px;
-        }
+        .btn { padding: 10px; border: none; border-radius: 20px; cursor: pointer; font-weight: 500; width: 100%; margin-bottom: 8px; transition: 0.2s; text-transform: uppercase; font-size: 13px; }
+        .btn-primary { background: #1a73e8; color: white; } .btn-danger { background: #d93025; color: white; } .btn-success { background: #1e8e3e; color: white; }
+        .btn-warning { background: #f39c12; color: white; } .btn-info { background: #00bcd4; color: white; } .btn-secondary { background: #f1f3f4; color: #3c4043; }
+        .log-panel { background: #f1f3f4; padding: 10px; border-radius: 8px; flex-grow: 1; overflow-y: auto; font-family: monospace; font-size: 12px; }
         .log-entry { border-bottom: 1px solid #dadce0; padding: 4px 0; }
-        
-        .traffic-list { max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; background: #fff;}
-        .traffic-item {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .traffic-item:last-child { border-bottom: none; }
-        
-        .signal-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .traffic-dot {
-            width: 14px; height: 14px; border-radius: 50%;
-            display: inline-block;
-            box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
-        }
-        .dot-RED { background: #ff3b30; box-shadow: 0 0 8px #ff3b30; }
-        .dot-GREEN { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
-        .dot-YELLOW { background: #f1c40f; box-shadow: 0 0 8px #f1c40f; }
-
-        .timer-badge {
-            background: #333;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-family: monospace;
-            font-weight: bold;
-            min-width: 24px;
-            text-align: center;
-        }
-        
-        .timer-badge.override {
-            background: #1a73e8;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
-
-        /* Map Icons for Signals */
-        .leaflet-div-icon { background: transparent; border: none; }
-        
-        .map-signal-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transform: translateY(-50%); 
-        }
-
-        .traffic-icon {
-            width: 20px; height: 20px; border-radius: 50%;
-            border: 3px solid white; box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-            transition: all 0.3s ease;
-        }
-        .icon-RED { background: #ff3b30; box-shadow: 0 0 12px #ff3b30; }
-        .icon-GREEN { background: #2ecc71; box-shadow: 0 0 12px #2ecc71; }
-        .icon-YELLOW { background: #f1c40f; box-shadow: 0 0 12px #f1c40f; }
-
-        .map-timer {
-            background: rgba(0,0,0,0.8);
-            color: white;
-            font-family: monospace;
-            font-weight: bold;
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            margin-top: 4px;
-            border: 1px solid rgba(255,255,255,0.3);
-        }
-
-        .ambulance-icon { font-size: 32px; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.4)); }
-        
-        /* Toggle Switch */
-        .toggle-container {
-            display: flex; align-items: center; margin-bottom: 15px; font-size: 14px; color: #3c4043; background: #f8f9fa; padding: 10px; border-radius: 8px;
-        }
-        .toggle-switch {
-            position: relative; display: inline-block; width: 40px; height: 20px; margin-right: 10px;
-        }
+        .traffic-list { max-height: 400px; overflow-y: auto; }
+        .traffic-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .traffic-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .dot-red, .icon-red { background: #d93025; } .dot-green, .icon-green { background: #1e8e3e; } .dot-yellow, .icon-yellow { background: #f39c12; }
+        .icon-green, .icon-yellow { box-shadow: 0 0 8px currentColor; }
+        .traffic-icon { width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; }
+        .ambulance-icon { font-size: 28px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3)); text-align: center; line-height: 30px; margin: 0; padding: 0; }
+        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 20px; margin-right: 10px; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc; transition: .4s; border-radius: 20px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px;
-            background-color: white; transition: .4s; border-radius: 50%;
-        }
-        input:checked + .slider { background-color: #1a73e8; }
-        input:checked + .slider:before { transform: translateX(20px); }
-
-        .user-info {
-            background-color: #e8eaed;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 14px;
-            border-left: 4px solid #1a73e8;
-        }
-        .user-info strong { color: #1a73e8; }
-        
-        /* Notification Toast */
-        #toast {
-            visibility: hidden; min-width: 250px; background-color: rgba(51, 51, 51, 0.9); color: #fff;
-            text-align: center; border-radius: 8px; padding: 16px; position: fixed;
-            z-index: 3000; left: 50%; bottom: 30px; transform: translateX(-50%);
-            font-size: 14px; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
-            backdrop-filter: blur(5px);
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 20px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; border-radius: 50%; transition: .4s; }
+        input:checked + .slider { background-color: #1a73e8; } input:checked + .slider:before { transform: translateX(20px); }
+        .user-info { background-color: #e8eaed; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
+        #toast { visibility: hidden; min-width: 250px; background: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 14px; opacity: 0; transition: 0.3s; z-index: 2000; }
         #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
-        
-        /* Custom Context Menu inside Leaflet Popup */
-        .context-menu-btn {
-            display: block; width: 100%; text-align: left; padding: 10px;
-            margin-bottom: 5px; border: none; border-radius: 4px; cursor: pointer;
-            background: #f1f3f4; font-size: 14px; font-weight: 500;
-        }
-        .context-menu-btn:hover { background: #e8eaed; }
-        .context-menu-btn:last-child { margin-bottom: 0; }
-
-        /* --- Mobile Responsive Styles --- */
-        @media (max-width: 768px) {
-            #mobile-menu-btn { display: block; }
-            .sidebar {
-                position: absolute; top: 0; right: 0; height: 100vh;
-                width: 85%; max-width: 350px; transform: translateX(100%);
-                padding-bottom: 40px; 
-            }
-            .sidebar.open { transform: translateX(0); box-shadow: -5px 0 15px rgba(0,0,0,0.2); }
-            #search-container { top: 20px; left: 10px; right: 70px; width: auto; }
-            .search-box-wrapper { width: 100%; }
-            .leaflet-control-geocoder-form input { font-size: 16px; padding: 10px 12px; height: 40px; }
-            .leaflet-control-zoom { display: none; }
-            #mobile-overlay {
-                display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.5); z-index: 1001;
-            }
-            #mobile-overlay.show { display: block; }
-        }
+        .context-menu-btn { display: block; width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 5px; border: none; border-radius: 4px; cursor: pointer; background: #f1f3f4; font-size: 13px; }
     </style>
 </head>
 <body>
 
 <div id="main-container">
-    <div id="map"></div>
-    <div id="search-container"></div>
-    <button id="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
-    <div id="mobile-overlay" onclick="toggleMobileMenu()"></div>
+    <div id="map"><div id="search-container"></div></div>
 
-    <div class="sidebar" id="sidebar">
-        <button class="btn btn-secondary" style="margin-bottom: 15px; display: none;" id="mobile-close-btn" onclick="toggleMobileMenu()">❌ Close Menu</button>
-        
+    <div class="sidebar">
         <div class="user-info" id="userInfoDisplay"></div>
-        <button class="btn btn-secondary" style="margin-bottom: 20px;" onclick="logout()">Logout</button>
-
-        <h2>🚑 Navigation Controls</h2>
-        
-        <div class="toggle-container">
-            <label class="toggle-switch">
-                <input type="checkbox" id="trafficToggle" onchange="toggleTrafficLayer()">
-                <span class="slider"></span>
-            </label>
-            <span style="font-weight: 500;">Live Traffic Overlay</span>
+        <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        <h2>🚑 Controls</h2>
+        <div style="display:flex; align-items:center; margin-bottom:15px; font-size:14px;">
+            <label class="toggle-switch"><input type="checkbox" id="trafficToggle" onchange="baseLayer.setUrl(`https://{s}.google.com/vt/lyrs=m${this.checked?',traffic':''}&x={x}&y={y}&z={z}`); log(`🚦 Traffic Layer: ${this.checked?'ON':'OFF'}`);"><span class="slider"></span></label>
+            <span>Show Live Traffic</span>
         </div>
-
         <div>
-            <button class="btn btn-primary" onclick="detectAndStart(); if(window.innerWidth<=768) toggleMobileMenu();">🚀 Start Navigation</button>
+            <button class="btn btn-info" onclick="manualDetectLights()">🔍 Detect Lights</button>
+            <button class="btn btn-primary" onclick="manualStart()">🚀 Start Navigation</button>
             <button class="btn btn-danger" onclick="resetMap()">❌ Clear Route</button>
             <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
-            <button class="btn btn-warning" id="addSimLightBtn" onclick="toggleAddLightMode(); if(window.innerWidth<=768) toggleMobileMenu();">➕ Add Custom Signal</button>
+            <button class="btn btn-warning" id="addSimLightBtn" onclick="toggleAddLightMode()">➕ Add Random Signal</button>
         </div>
-
-        <div style="margin-top: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
-            <label style="font-size: 13px; color: #5f6368; font-weight: 500; display: block; margin-bottom: 8px;">Traffic Density Override</label>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn btn-danger" style="flex:1; margin-bottom: 0;" onclick="setGlobalDensity('HIGH')">High</button>
-                <button class="btn btn-success" style="flex:1; margin-bottom: 0;" onclick="setGlobalDensity('LOW')">Low</button>
+        <div style="margin-top: 5px;">
+            <label style="font-size: 12px; color: #5f6368;">Traffic Density Simulation</label>
+            <div style="display: flex; gap: 10px; margin-top: 5px;">
+                <button class="btn btn-danger" style="flex:1" onclick="setDensity('HIGH')">High</button>
+                <button class="btn btn-success" style="flex:1" onclick="setDensity('LOW')">Low</button>
             </div>
-            <div style="margin-top: 10px; font-size: 14px; text-align: center;">
-                Speed: <strong id="speedVal" style="color: #1a73e8; font-size: 16px;">Auto</strong>
-            </div>
+            <div style="margin-top: 5px; font-size: 13px;">Speed: <strong id="speedVal">Auto</strong></div>
         </div>
-
-        <hr style="border: 0; border-top: 1px solid #eee; width: 100%; margin: 15px 0;">
-
-        <h2>🚦 Route Signals (<span id="lightCount">0</span>)</h2>
-        <div id="traffic-list" class="traffic-list">
-            <div style="color: #70757a; font-size: 13px; padding: 15px; text-align: center;">
-                No traffic lights detected yet.
-            </div>
-        </div>
-        
-        <h2 style="margin-top: 15px;">📜 System Log</h2>
+        <hr style="border: 0; border-top: 1px solid #eee; width: 100%;">
+        <h2>🚦 Traffic Lights (<span id="lightCount">0</span>)</h2>
+        <div id="traffic-list" class="traffic-list"></div>
+        <h2>📜 Activity Log</h2>
         <div id="activity-log" class="log-panel"></div>
     </div>
 </div>
-
-<div id="toast">Message here</div>
+<div id="toast"></div>
 
 <script>
-    // FIX: Using relative paths so it works automatically on localhost and on Render/Fly.io
-    const API_BASE = '/api';
-    
-    let map, routingControl;
-    let baseLayer;
-    let startMarker, endMarker;
-    let routeCoordinates = [];
-    let routeInstructions = [];
-    let detectedLights = []; 
-    let trafficMarkers = {};
-    let ambulanceMarker;
-    
-    // Animation specific variables
-    let animationFrameId;
-    let currentSegmentIndex = 0;
-    let segmentProgress = 0;
-    let lastAnimTime = 0;
-    let lastBackendUpdateTime = 0;
+    const API = 'http://localhost:8080/api';
+    let map, routingControl, baseLayer, startMarker, endMarker, ambulanceMarker, animId, pollInterval;
+    let routeCoords = [], routeInsts = [], detectedLights = [], trafficMarkers = {};
+    let currentDensity = "LOW", isAddLightMode = false, user = JSON.parse(localStorage.getItem('currentUser'));
 
-    let currentUser = null;
-    let isAddLightMode = false;
-    
-    // Speed Settings
-    let currentDensity = "LOW";
-    const SPEED_LOW_DENSITY = 80;  // km/h
-    const SPEED_HIGH_DENSITY = 30; // km/h
+    if (!user) window.location.href = 'login.html';
+    document.getElementById('userInfoDisplay').innerHTML = `<strong>${user.username}</strong><br>${user.vehicleType === 'POLICE'?'🚓':user.vehicleType==='FIRE_TRUCK'?'🚒':'🚑'} ${user.vehicleType}<br>Reg: ${user.registrationNumber}`;
 
-    // --- Authentication Check ---
-    function checkAuth() {
-        const userStr = localStorage.getItem('currentUser');
-        if (!userStr) { window.location.href = 'login.html'; return; }
-        currentUser = JSON.parse(userStr);
-        let emoji = currentUser.vehicleType === 'POLICE' ? '🚓' : (currentUser.vehicleType === 'FIRE_TRUCK' ? '🚒' : '🚑');
-        document.getElementById('userInfoDisplay').innerHTML = `
-            <div style="margin-bottom: 4px;">Driver: <strong>${currentUser.username}</strong></div>
-            <div style="margin-bottom: 4px;">Unit: ${emoji} <strong>${currentUser.vehicleType.replace('_', ' ')}</strong></div>
-            <div>Plate: <strong>${currentUser.registrationNumber}</strong></div>
-        `;
-    }
-
-    function logout() {
-        localStorage.removeItem('currentUser');
-        window.location.href = 'login.html';
-    }
-    
-    function toggleMobileMenu() {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('mobile-overlay');
-        const closeBtn = document.getElementById('mobile-close-btn');
-        if (sidebar.classList.contains('open')) {
-            sidebar.classList.remove('open'); overlay.classList.remove('show');
-            if(window.innerWidth <= 768) closeBtn.style.display = 'none';
-        } else {
-            sidebar.classList.add('open'); overlay.classList.add('show');
-            if(window.innerWidth <= 768) closeBtn.style.display = 'block';
-        }
-    }
-
-    window.addEventListener('resize', () => {
-        if (window.innerWidth > 768) {
-            document.getElementById('sidebar').classList.remove('open');
-            document.getElementById('mobile-overlay').classList.remove('show');
-            document.getElementById('mobile-close-btn').style.display = 'none';
-        }
-    });
-
-    function showToast(message) {
-        const toast = document.getElementById("toast");
-        toast.innerText = message; toast.className = "show";
-        setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
-    }
+    const log = msg => document.getElementById('activity-log').insertAdjacentHTML('afterbegin', `<div class="log-entry">[${new Date().toLocaleTimeString()}] ${msg}</div>`);
+    const showToast = msg => { const t = document.getElementById("toast"); t.innerText = msg; t.className = "show"; setTimeout(() => t.className = "", 3000); };
+    const apiCall = async (end, method='GET', body) => {
+        try { const r = await fetch(API+end, { method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : null }); return method==='GET'? await r.json() : null; } catch(e) {}
+    };
 
     function initMap() {
-        map = L.map('map', { zoomControl: false }).setView([30.7333, 76.7794], 13);
-        if (window.innerWidth > 768) L.control.zoom({ position: 'bottomright' }).addTo(map);
-        
-        baseLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-            maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '© Google Maps'
-        }).addTo(map);
+        map = L.map('map', {zoomControl: false}).setView([30.7333, 76.7794], 13);
+        L.control.zoom({position: 'bottomright'}).addTo(map);
+        baseLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {maxZoom: 20, subdomains: ['mt0','mt1','mt2','mt3']}).addTo(map);
 
-        const geocoder = L.Control.Geocoder.nominatim();
-        const searchContainer = document.getElementById('search-container');
-
-        function createSearchBox(placeholder, type) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'search-box-wrapper';
-            const control = L.Control.geocoder({
-                placeholder: placeholder, geocoder: geocoder, defaultMarkGeocode: false, collapsed: false
-            }).on('markgeocode', function(e) {
-                const latlng = e.geocode.center;
-                if (type === 'start') {
-                    if (startMarker) map.removeLayer(startMarker);
-                    startMarker = L.marker(latlng).addTo(map).bindPopup("Start").openPopup();
-                    log("📍 Start set: " + e.geocode.name.split(',')[0]);
-                } else {
-                    if (endMarker) map.removeLayer(endMarker);
-                    endMarker = L.marker(latlng).addTo(map).bindPopup("Destination").openPopup();
-                    log("🏁 Destination set: " + e.geocode.name.split(',')[0]);
-                }
-                document.querySelectorAll('.leaflet-control-geocoder-form input').forEach(input => input.blur());
-                if (startMarker && endMarker) calculateRoute();
-            });
-            wrapper.appendChild(control.onAdd(map));
-            searchContainer.appendChild(wrapper);
-        }
-
-        createSearchBox("Choose starting point...", 'start');
-        createSearchBox("Choose destination...", 'end');
-
-        map.on('click', function(e) {
-            if (isAddLightMode) { addCustomTrafficLight(e.latlng); toggleAddLightMode(); return; }
+        const sc = document.getElementById('search-container');
+        ['Start', 'Destination'].forEach(t => {
+            const w = document.createElement('div'); w.className = 'search-box-wrapper';
+            w.appendChild(L.Control.geocoder({placeholder: `Choose ${t}...`, defaultMarkGeocode: false})
+                .on('markgeocode', e => setMarker(t.toLowerCase(), e.geocode.center, t)).onAdd(map));
+            sc.appendChild(w);
         });
+        sc.insertAdjacentHTML('beforeend', '<div id="instruction-panel">Use search boxes or right-click to set start/destination.</div>');
 
-        map.on('contextmenu', function(e) {
-            if (isAddLightMode) return;
-            const popupContent = document.createElement('div');
-            popupContent.innerHTML = `
-                <div style="min-width: 150px;">
-                    <div style="font-size: 12px; color: #666; margin-bottom: 8px; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 4px;">Set Location</div>
-                    <button class="context-menu-btn" id="ctx-set-start">📍 Set as Start</button>
-                    <button class="context-menu-btn" id="ctx-set-end">🏁 Set as Destination</button>
-                </div>`;
-            const popup = L.popup().setLatLng(e.latlng).setContent(popupContent).openOn(map);
-            popupContent.querySelector('#ctx-set-start').addEventListener('click', () => {
-                if (startMarker) map.removeLayer(startMarker);
-                startMarker = L.marker(e.latlng, {draggable: true}).addTo(map).bindPopup("Start").openPopup();
-                if (startMarker && endMarker) calculateRoute();
-                map.closePopup();
-            });
-            popupContent.querySelector('#ctx-set-end').addEventListener('click', () => {
-                if (endMarker) map.removeLayer(endMarker);
-                endMarker = L.marker(e.latlng, {draggable: true}).addTo(map).bindPopup("Destination").openPopup();
-                if (startMarker && endMarker) calculateRoute();
-                map.closePopup();
-            });
-        });
+        map.on('click', e => isAddLightMode ? addCustomLight(e.latlng) : (!startMarker ? setMarker('start', e.latlng, 'Start') : (!endMarker && setMarker('destination', e.latlng, 'Destination'))));
+        map.on('contextmenu', e => !isAddLightMode && L.popup().setLatLng(e.latlng).setContent(`
+            <button class="context-menu-btn" onclick="setMarker('start', [${e.latlng.lat}, ${e.latlng.lng}], 'Start'); map.closePopup()">📍 Start here</button>
+            <button class="context-menu-btn" onclick="setMarker('destination', [${e.latlng.lat}, ${e.latlng.lng}], 'Destination'); map.closePopup()">🏁 Destination here</button>
+        `).openOn(map));
     }
 
-    function toggleTrafficLayer() {
-        const isChecked = document.getElementById('trafficToggle').checked;
-        if (isChecked) {
-            baseLayer.setUrl('https://{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}');
-            log("🚦 Live Traffic Layer: ON");
-        } else {
-            baseLayer.setUrl('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}');
-            log("🚦 Live Traffic Layer: OFF");
-        }
+    function setMarker(type, latlng, title) {
+        if (type === 'start') { startMarker?.remove(); startMarker = L.marker(latlng, {draggable:true}).addTo(map).bindPopup(title).openPopup(); }
+        else { endMarker?.remove(); endMarker = L.marker(latlng, {draggable:true}).addTo(map).bindPopup(title).openPopup(); }
+        log(`📍 ${title} set.`);
+        if (startMarker && endMarker) calculateRoute();
+    }
+
+    function calculateRoute() {
+        if (routingControl) map.removeControl(routingControl);
+        log("🔄 Calculating route...");
+        routingControl = L.Routing.control({ waypoints: [startMarker.getLatLng(), endMarker.getLatLng()], show: false, createMarker: ()=>null, lineOptions: {styles: [{color:'#4285F4', weight:5}]} })
+            .on('routesfound', e => {
+                routeCoords = e.routes[0].coordinates; routeInsts = e.routes[0].instructions;
+                log(`🛣️ Route: ${(e.routes[0].summary.totalDistance / 1000).toFixed(1)} km. Click 'Detect Lights'.`);
+            }).addTo(map);
+    }
+
+    async function autoDetectLights() {
+        log("🔍 Scanning for traffic lights...");
+        const b = L.latLngBounds(routeCoords), query = `[out:json][timeout:25];(node["highway"="traffic_signals"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}););out body;`;
+        let lights = [];
+        try {
+            const res = await (await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)).json();
+            lights = res.elements.filter(n => isNearRoute(L.latLng(n.lat, n.lon))).map(n => ({ id: `r-${n.id}`, name: `Signal ${n.id}`, location: {latitude: n.lat, longitude: n.lon}, status: "RED" }));
+        } catch (e) {}
+
+        routeInsts.forEach((inst, i) => {
+            if (['Right', 'Left', 'SharpRight', 'SharpLeft'].includes(inst.type) && routeCoords[inst.index]) {
+                const ll = routeCoords[inst.index];
+                if (!lights.some(l => L.latLng(l.location.latitude, l.location.longitude).distanceTo(ll) < 150))
+                    lights.push({ id: `i-${i}`, name: inst.road ? `Signal at ${inst.road}` : `Intersection ${i}`, location: {latitude: ll.lat, longitude: ll.lng}, status: "RED" });
+            }
+        });
+
+        detectedLights = lights;
+        log(lights.length ? `✅ Auto-configured ${lights.length} signals.` : "⚠️ No signals found.");
+        await apiCall('/traffic-lights/reset', 'POST');
+        if (lights.length) await apiCall('/traffic-lights/batch', 'POST', lights);
+        fetchTraffic();
+    }
+
+    function isNearRoute(p) { return routeCoords.some(c => p.distanceTo(c) < 150); }
+    
+    async function manualDetectLights() { routeCoords.length ? await autoDetectLights() : alert("Select Start/End points first!"); }
+    async function manualStart() {
+        if (!routeCoords.length || !detectedLights.length) return alert("Select route and detect lights first!");
+        await apiCall('/route', 'POST', routeCoords.map(c => ({latitude: c.lat, longitude: c.lng})));
+        startSimulation();
     }
 
     function toggleAddLightMode() {
         isAddLightMode = !isAddLightMode;
-        const btn = document.getElementById('addSimLightBtn');
-        if (isAddLightMode) {
-            btn.style.backgroundColor = '#2ecc71'; btn.innerText = 'Tap Map to Place...';
-            document.getElementById('map').style.cursor = 'crosshair';
-            showToast("Tap anywhere on the map to add a custom signal.");
-        } else {
-            btn.style.backgroundColor = '#f39c12'; btn.innerText = '➕ Add Custom Signal';
-            document.getElementById('map').style.cursor = '';
-        }
-    }
-
-    async function addCustomTrafficLight(latlng) {
-        const newLight = {
-            id: `custom-${Date.now()}`, name: `Manual Signal`,
-            location: { latitude: latlng.lat, longitude: latlng.lng },
-            status: "RED", trafficDensity: "LOW"
-        };
-        detectedLights.push(newLight);
-        log(`📍 Added manual signal.`);
-        await resetBackendLights();
-        await sendLightsToBackend(detectedLights);
-        updateUI(detectedLights);
-    }
-
-    function calculateRoute() {
-        if (!startMarker || !endMarker) return;
-        if (routingControl) map.removeControl(routingControl);
-        log("🔄 Calculating route...");
-        document.activeElement.blur();
-        routingControl = L.Routing.control({
-            waypoints: [startMarker.getLatLng(), endMarker.getLatLng()],
-            routeWhileDragging: false, show: false, createMarker: function() { return null; },
-            lineOptions: { styles: [{color: '#4285F4', opacity: 0.8, weight: 6}] }
-        }).on('routesfound', function(e) {
-            const route = e.routes[0];
-            routeCoordinates = route.coordinates;
-            routeInstructions = route.instructions;
-            log(`🛣️ Route calculated: ${(route.summary.totalDistance / 1000).toFixed(1)} km`);
-            autoDetectLights();
-        }).addTo(map);
+        document.getElementById('addSimLightBtn').style.background = isAddLightMode ? '#2ecc71' : '#f39c12';
+        document.getElementById('map').style.cursor = isAddLightMode ? 'crosshair' : '';
     }
     
-    async function autoDetectLights() {
-        log("🔍 Auto-scanning for intersections...");
-        const bounds = L.latLngBounds(routeCoordinates);
-        const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
-        const query = `[out:json][timeout:25];(node["highway"="traffic_signals"](${bbox}););out body;`;
-        detectedLights = []; 
-        try {
-            const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-            const data = await response.json();
-            data.elements.forEach((node) => {
-                if (isNearRoute(L.latLng(node.lat, node.lon))) {
-                    detectedLights.push({
-                        id: `real-${node.id}`, name: `Real Signal`,
-                        location: { latitude: node.lat, longitude: node.lon },
-                        status: "RED", trafficDensity: "LOW"
-                    });
-                }
-            });
-        } catch (error) { log("⚠️ Network Error during scan."); }
-
-        // Always merge generated intersections to fill gaps
-        const generatedLights = detectIntersectionsFromInstructions();
-        
-        // Add generated lights that are not too close to real lights
-        generatedLights.forEach(genLight => {
-            const isTooCloseToReal = detectedLights.some(realLight => {
-                return L.latLng(genLight.location.latitude, genLight.location.longitude)
-                        .distanceTo(L.latLng(realLight.location.latitude, realLight.location.longitude)) < 150;
-            });
-            if (!isTooCloseToReal) {
-                detectedLights.push(genLight);
-            }
-        });
-
-        if (detectedLights.length === 0) {
-            log("⚠️ No signals could be generated. (You can add custom signals!)");
-        } else {
-            log(`✅ Configured ${detectedLights.length} signals on route.`);
-        }
-        
-        await resetBackendLights();
-        if (detectedLights.length > 0) {
-            await sendLightsToBackend(detectedLights);
-        }
-        updateUI(detectedLights);
-    }
-
-    async function detectAndStart() {
-        if (routeCoordinates.length === 0) {
-            alert("Please set Start and Destination first.");
-            if(window.innerWidth <= 768) toggleMobileMenu();
-            return;
-        }
-        if (detectedLights.length === 0) await autoDetectLights();
-        startSimulation();
-    }
-
-    function detectIntersectionsFromInstructions() {
-        const lights = [];
-        if (!routeInstructions || routeInstructions.length < 2) return lights;
-        
-        // 1. Add lights at every routing instruction (which usually corresponds to an intersection/turn)
-        for (let i = 0; i < routeInstructions.length - 1; i++) {
-            const currentInstr = routeInstructions[i];
-            
-            // Skip start and end points
-            if (currentInstr.type === 'Head' || currentInstr.type === 'Destination' || currentInstr.type === 'WaypointReached') continue;
-
-            const coordIndex = currentInstr.index;
-            if(coordIndex >= 0 && coordIndex < routeCoordinates.length) {
-                const latlng = routeCoordinates[coordIndex];
-                
-                // Ensure we don't place lights too close together
-                const isTooClose = lights.some(light => {
-                    return latlng.distanceTo(L.latLng(light.location.latitude, light.location.longitude)) < 150; 
-                });
-                
-                if (!isTooClose) {
-                    let lightName = `Intersection Signal`;
-                    if (currentInstr.road && currentInstr.road.trim() !== "") {
-                        lightName = `Signal at ${currentInstr.road}`;
-                    } else if (currentInstr.type) {
-                        // e.g. "Signal (Turn Right)"
-                        lightName = `Signal (${currentInstr.type})`;
-                    }
-                    
-                    lights.push({
-                        id: `int-${i}`, name: lightName,
-                        location: { latitude: latlng.lat, longitude: latlng.lng },
-                        status: "RED", trafficDensity: "LOW"
-                    });
-                }
-            }
-        }
-        
-        // 2. Fill in long straight gaps (e.g. highways) with simulated lights every 600m
-        let distanceAccumulator = 0;
-        const interval = 600;
-        for (let i = 1; i < routeCoordinates.length; i++) {
-            const p1 = L.latLng(routeCoordinates[i-1]);
-            const p2 = L.latLng(routeCoordinates[i]);
-            distanceAccumulator += p1.distanceTo(p2);
-
-            if (distanceAccumulator >= interval) {
-                const isTooClose = lights.some(light => {
-                    return p2.distanceTo(L.latLng(light.location.latitude, light.location.longitude)) < 150; 
-                });
-                
-                if(!isTooClose) {
-                    lights.push({
-                        id: `sim-${i}`,
-                        name: `Simulated Route Signal`,
-                        location: { latitude: p2.lat, longitude: p2.lng },
-                        status: "RED",
-                        trafficDensity: "LOW"
-                    });
-                }
-                distanceAccumulator = 0; // Reset
-            }
-        }
-
-        return lights;
-    }
-
-    function isNearRoute(point) {
-        for (let i = 0; i < routeCoordinates.length; i += 2) {
-            if (point.distanceTo(L.latLng(routeCoordinates[i])) < 150) return true;
-        }
-        return false;
-    }
-
-    async function resetBackendLights() { await fetch(`${API_BASE}/traffic-lights/reset`, { method: 'POST' }); }
-    async function sendLightsToBackend(lights) {
-        await fetch(`${API_BASE}/traffic-lights/batch`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(lights)
-        });
-        fetchTrafficStatus();
+    async function addCustomLight(ll) {
+        detectedLights.push({ id: `c-${Date.now()}`, name: `Custom Signal`, location: {latitude: ll.lat, longitude: ll.lng}, status: "RED" });
+        await apiCall('/traffic-lights/reset', 'POST'); await apiCall('/traffic-lights/batch', 'POST', detectedLights);
+        toggleAddLightMode(); fetchTraffic();
     }
 
     function startSimulation() {
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        currentSegmentIndex = 0;
-        segmentProgress = 0;
-        lastAnimTime = performance.now();
-        lastBackendUpdateTime = lastAnimTime;
+        cancelAnimationFrame(animId);
+        let idx = 0, prog = 0, lastT = performance.now(), lastNet = lastT;
+        log("🚑 Emergency Vehicle started.");
 
-        log(`🚀 Commencing route.`);
+        function anim(t) {
+            if (idx >= routeCoords.length - 1) return log("🏁 Reached destination.");
+            let dt = t - lastT; lastT = t;
+            let spd = currentDensity === "HIGH" ? 30 : 80;
+            document.getElementById('speedVal').innerText = spd + " km/h";
+            let dist = (spd / 3.6) * (dt / 1000);
 
-        function animate(time) {
-            if (currentSegmentIndex >= routeCoordinates.length - 1) {
-                log("🏁 Destination reached.");
-                document.getElementById('speedVal').innerText = "0 km/h";
-                return;
+            while (dist > 0 && idx < routeCoords.length - 1) {
+                let p1 = L.latLng(routeCoords[idx]), p2 = L.latLng(routeCoords[idx+1]), d = p1.distanceTo(p2);
+                if (d < 0.1) { idx++; prog = 0; continue; }
+                let rem = d * (1 - prog);
+                if (dist < rem) { prog += dist / d; dist = 0; } else { dist -= rem; prog = 0; idx++; }
             }
 
-            let deltaTime = time - lastAnimTime;
-            lastAnimTime = time;
-
-            let speedKmh = (currentDensity === "HIGH") ? SPEED_HIGH_DENSITY : SPEED_LOW_DENSITY;
-            document.getElementById('speedVal').innerText = speedKmh + " km/h";
-            
-            let speedMps = speedKmh / 3.6; 
-            let distanceToMove = speedMps * (deltaTime / 1000); 
-
-            while (distanceToMove > 0 && currentSegmentIndex < routeCoordinates.length - 1) {
-                let p1 = L.latLng(routeCoordinates[currentSegmentIndex]);
-                let p2 = L.latLng(routeCoordinates[currentSegmentIndex + 1]);
-                let segmentDistance = p1.distanceTo(p2);
+            if (idx < routeCoords.length - 1) {
+                let p1 = routeCoords[idx], p2 = routeCoords[idx+1];
+                let lat = p1.lat + (p2.lat - p1.lat)*prog, lng = p1.lng + (p2.lng - p1.lng)*prog;
                 
-                if (segmentDistance < 0.1) {
-                    currentSegmentIndex++; segmentProgress = 0; continue;
-                }
+                if (!ambulanceMarker) {
+                    const iconHtml = user?.vehicleType === 'POLICE' ? '🚓' : user?.vehicleType === 'FIRE_TRUCK' ? '🚒' : '🚑';
+                    ambulanceMarker = L.marker([lat, lng], {icon: L.divIcon({className: '', html: `<div class="ambulance-icon">${iconHtml}</div>`, iconSize: [30,30], iconAnchor: [15,15]}), zIndexOffset: 1000}).addTo(map);
+                } else ambulanceMarker.setLatLng([lat, lng]);
+                map.setView([lat, lng], map.getZoom(), {animate: false});
 
-                let remainingSegmentDistance = segmentDistance * (1 - segmentProgress);
-
-                if (distanceToMove < remainingSegmentDistance) {
-                    segmentProgress += distanceToMove / segmentDistance; distanceToMove = 0; 
-                } else {
-                    distanceToMove -= remainingSegmentDistance; segmentProgress = 0; currentSegmentIndex++; 
-                }
-            }
-
-            if (currentSegmentIndex < routeCoordinates.length - 1) {
-                let p1 = L.latLng(routeCoordinates[currentSegmentIndex]);
-                let p2 = L.latLng(routeCoordinates[currentSegmentIndex + 1]);
-                
-                let currentLat = p1.lat + (p2.lat - p1.lat) * segmentProgress;
-                let currentLng = p1.lng + (p2.lng - p1.lng) * segmentProgress;
-
-                updateAmbulanceMarker(currentLat, currentLng);
-                
-                if (time - lastBackendUpdateTime > 1000) {
-                    sendLocationUpdate(currentLat, currentLng);
-                    lastBackendUpdateTime = time;
-                }
-                animationFrameId = requestAnimationFrame(animate);
-            } else { log("🏁 Destination reached."); }
+                if (t - lastNet > 1000) { apiCall('/ambulance/location', 'POST', {latitude: lat, longitude: lng, timestamp: Date.now()}); lastNet = t; }
+                animId = requestAnimationFrame(anim);
+            } else log("🏁 Reached destination.");
         }
-        
-        animationFrameId = requestAnimationFrame(animate);
-        if(!window.pollingInterval) {
-            window.pollingInterval = setInterval(fetchTrafficStatus, 1000);
-        }
+        animId = requestAnimationFrame(anim);
+        if(pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(fetchTraffic, 1000);
     }
 
-    function updateAmbulanceMarker(lat, lng) {
-        if (!ambulanceMarker) {
-            let iconHtml = '<div class="ambulance-icon">🚑</div>';
-            if (currentUser && currentUser.vehicleType === 'POLICE') iconHtml = '<div class="ambulance-icon">🚓</div>';
-            if (currentUser && currentUser.vehicleType === 'FIRE_TRUCK') iconHtml = '<div class="ambulance-icon">🚒</div>';
-            const icon = L.divIcon({className: 'leaflet-div-icon', html: iconHtml, iconSize: [30,30]});
-            ambulanceMarker = L.marker([lat, lng], {icon: icon, zIndexOffset: 1000}).addTo(map);
-        } else { ambulanceMarker.setLatLng([lat, lng]); }
-        map.setView([lat, lng], map.getZoom(), { animate: false }); 
+    async function fetchTraffic() {
+        let lights = await apiCall('/traffic-lights');
+        if(lights) { detectedLights = lights; updateUI(); }
     }
 
-    async function sendLocationUpdate(lat, lng) {
-        try {
-            await fetch(`${API_BASE}/ambulance/location`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ latitude: lat, longitude: lng, timestamp: Date.now() })
-            });
-        } catch(e) {}
-    }
-
-    async function fetchTrafficStatus() {
-        try {
-            const res = await fetch(`${API_BASE}/traffic-lights`);
-            const backendLights = await res.json();
-            detectedLights = backendLights;
-            updateUI(detectedLights);
-        } catch(e) {}
-    }
-
-    function updateUI(lights) {
-        document.getElementById('lightCount').innerText = lights.length;
-        const list = document.getElementById('traffic-list');
-        list.innerHTML = '';
-        
-        if (lights.length === 0) {
-            list.innerHTML = '<div style="color: #70757a; font-size: 13px; padding: 20px; text-align:center;">No signals found.</div>';
-            return;
-        }
-
-        lights.forEach(light => {
-            const item = document.createElement('div');
-            item.className = 'traffic-item';
-            const dotClass = light.status === 'GREEN' ? 'dot-green' : 'dot-red';
+    function updateUI() {
+        document.getElementById('lightCount').innerText = detectedLights.length;
+        document.getElementById('traffic-list').innerHTML = detectedLights.length ? detectedLights.map(l => {
+            const col = l.status === 'GREEN' ? 'green' : l.status === 'YELLOW' ? 'yellow' : 'red';
+            const tm = l.timer > 0 ? l.timer : '';
             
-            let timerDisplay = light.timer + 's';
-            let timerClass = 'timer-badge';
-            if (light.overridden) {
-                timerDisplay = 'OVR';
-                timerClass += ' override';
-            }
-
-            item.innerHTML = `
-                <div class="signal-indicator">
-                    <span class="traffic-dot ${dotClass}"></span>
-                    <span style="font-weight:500; font-size: 14px;">${light.name}</span>
-                </div>
-                <div class="${timerClass}">${timerDisplay}</div>
-            `;
-            list.appendChild(item);
-
-            const colorClass = light.status === 'GREEN' ? 'icon-green' : (light.status === 'YELLOW' ? 'icon-yellow' : 'icon-red');
+            const icon = L.divIcon({className: 'leaflet-div-icon', html: `<div class="traffic-icon icon-${col}">${tm}</div>`, iconSize: [24,24]});
+            if (trafficMarkers[l.id]) trafficMarkers[l.id].setIcon(icon);
+            else trafficMarkers[l.id] = L.marker([l.location.latitude, l.location.longitude], {icon}).addTo(map).bindPopup(l.name);
             
-            const iconHtml = `
-                <div class="map-signal-container">
-                    <div class="traffic-icon ${colorClass}"></div>
-                    <div class="map-timer" style="${light.overridden ? 'color: #8ab4f8; border-color: #8ab4f8;' : ''}">
-                        ${light.overridden ? 'OVR' : light.timer + 's'}
-                    </div>
-                </div>
-            `;
-            
-            const icon = L.divIcon({
-                className: 'leaflet-div-icon',
-                html: iconHtml, 
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
-            });
-            
-            if (trafficMarkers[light.id]) {
-                trafficMarkers[light.id].setIcon(icon);
-            } else {
-                trafficMarkers[light.id] = L.marker([light.location.latitude, light.location.longitude], {icon: icon}).addTo(map).bindPopup(light.name);
-            }
-        });
+            return `<div class="traffic-item">
+                <div style="display:flex; align-items:center;"><span class="traffic-dot dot-${col}"></span><span style="font-weight:500;">${l.name}</span></div>
+                <div style="text-align: right;"><span style="font-size:12px; font-weight:bold; color:#3c4043;">${l.status} ${tm?`(${tm}s)`:''}</span></div>
+            </div>`;
+        }).join('') : '<div style="padding:10px; color:#70757a; font-size:13px;">No signals detected.</div>';
     }
 
     function resetMap() {
-        if (startMarker) map.removeLayer(startMarker);
-        if (endMarker) map.removeLayer(endMarker);
-        if (routingControl) map.removeControl(routingControl);
-        if (ambulanceMarker) map.removeLayer(ambulanceMarker);
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        
-        for (let id in trafficMarkers) map.removeLayer(trafficMarkers[id]);
-        
-        trafficMarkers = {};
-        detectedLights = [];
-        startMarker = null; 
-        endMarker = null; 
-        routeCoordinates = [];
-        document.getElementById('speedVal').innerText = "Auto";
-        
-        document.getElementById('traffic-list').innerHTML = '<div style="color: #70757a; font-size: 13px; padding: 15px; text-align: center;">No traffic lights detected yet.</div>';
-        log("Map reset.");
+        [startMarker, endMarker, ambulanceMarker, routingControl].forEach(m => m?.remove());
+        Object.values(trafficMarkers).forEach(m => m.remove());
+        cancelAnimationFrame(animId); clearInterval(pollInterval);
+        startMarker = endMarker = ambulanceMarker = routingControl = null;
+        trafficMarkers = {}; routeCoords = []; detectedLights = []; updateUI(); log("Map reset.");
     }
 
-    function log(msg) {
-        const panel = document.getElementById('activity-log');
-        const div = document.createElement('div');
-        div.className = 'log-entry';
-        const timeStr = new Date().toLocaleTimeString([], {hour12: false}); 
-        div.innerHTML = `<span style="color:#1a73e8; font-weight:bold; margin-right:5px;">[${timeStr}]</span> ${msg}`;
-        panel.insertBefore(div, panel.firstChild);
-    }
-    
-    async function setGlobalDensity(density) {
-        currentDensity = density; 
-        await fetch(`${API_BASE}/traffic/config`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ density: density })
-        });
-        log(`Density set to ${density}.`);
-    }
+    async function setDensity(d) { currentDensity = d; await apiCall('/traffic/config', 'POST', {density: d}); log(`Speed adjusted for ${d} density.`); }
 
-    checkAuth();
     initMap();
-    window.pollingInterval = setInterval(fetchTrafficStatus, 1000);
 </script>
-
 </body>
 </html>
