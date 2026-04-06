@@ -49,13 +49,18 @@ input:checked+.slider{background:#1a73e8}input:checked+.slider:before{transform:
 #toast{visibility:hidden;min-width:250px;background:rgba(51,51,51,.9);color:#fff;text-align:center;border-radius:8px;padding:16px;position:fixed;z-index:3000;left:50%;bottom:30px;transform:translateX(-50%);font-size:14px;opacity:0;transition:.3s;backdrop-filter:blur(5px)}
 #toast.show{visibility:visible;opacity:1;bottom:50px}
 .context-menu-btn{display:block;width:100%;text-align:left;padding:10px;margin-bottom:5px;border:none;border-radius:4px;cursor:pointer;background:#f1f3f4;font-size:14px}
+
+/* --- Fixed Mobile Sidebar Overlay Issue --- */
 @media (max-width:768px){
-#mobile-menu-btn{display:block}.sidebar{position:absolute;top:0;right:0;height:100vh;width:85%;max-width:350px;transform:translateX(100%);padding-bottom:40px}
-.sidebar.open{transform:translateX(0);box-shadow:-5px 0 15px rgba(0,0,0,.2)}
-#search-container{top:20px;left:10px;right:70px;width:auto}.search-box-wrapper{width:100%}
-.leaflet-control-geocoder-form input{font-size:16px;padding:10px 12px;height:40px}.leaflet-control-zoom{display:none}
-#mobile-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1001}
-#mobile-overlay.show{display:block}
+    #mobile-menu-btn{display:block}
+    .sidebar{position:absolute;top:0;right:0;height:100vh;width:85%;max-width:350px;transform:translateX(100%);padding-bottom:40px}
+    .sidebar.open{transform:translateX(0);box-shadow:-5px 0 15px rgba(0,0,0,.2)}
+    #search-container{top:20px;left:10px;right:70px;width:auto; z-index:1000;} /* Lower z-index than sidebar overlay */
+    .search-box-wrapper{width:100%}
+    .leaflet-control-geocoder-form input{font-size:16px;padding:10px 12px;height:40px}
+    .leaflet-control-zoom{display:none}
+    #mobile-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1001}
+    #mobile-overlay.show{display:block}
 }
 </style>
 </head>
@@ -110,9 +115,11 @@ function initMap() {
         sc.appendChild(w);
     });
     map.on('click', e => isAddMode ? addCustomLight(e.latlng) : null);
+    
+    // Add right click support back. Leaflet maps touch hold to context menu naturally on mobile.
     map.on('contextmenu', e => {
         if(isAddMode) return;
-        L.popup().setLatLng(e.latlng).setContent(`<button class="context-menu-btn" onclick="setMkr('start',[${e.latlng.lat},${e.latlng.lng}],'Start');map.closePopup()">📍 Set Start</button><button class="context-menu-btn" onclick="setMkr('end',[${e.latlng.lat},${e.latlng.lng}],'End');map.closePopup()">🏁 Set End</button>`).openOn(map);
+        const p = L.popup().setLatLng(e.latlng).setContent(`<button class="context-menu-btn" onclick="setMkr('start',[${e.latlng.lat},${e.latlng.lng}],'Start');map.closePopup()">📍 Set Start</button><button class="context-menu-btn" onclick="setMkr('end',[${e.latlng.lat},${e.latlng.lng}],'End');map.closePopup()">🏁 Set End</button>`).openOn(map);
     });
 }
 
@@ -201,7 +208,7 @@ function startSim() {
         }
         if(i < routeCoords.length-1) {
             let lat = routeCoords[i].lat + (routeCoords[i+1].lat - routeCoords[i].lat)*prg, lng = routeCoords[i].lng + (routeCoords[i+1].lng - routeCoords[i].lng)*prg;
-            if(!ambMkr) ambMkr = L.marker([lat,lng],{icon:L.divIcon({className:'',html:`<div class="ambulance-icon">${emj}</div>`,iconSize:[30,30],iconAnchor:[15,15]}), zIndexOffset:1000}).addTo(map);
+            if(!ambMkr) ambMkr = L.marker([lat,lng],{icon:L.divIcon({className:'',html:`<div class="ambulance-icon">${emj}</div>`,iconSize:[30,30]}), zIndexOffset:1000}).addTo(map);
             else ambMkr.setLatLng([lat,lng]); map.setView([lat,lng], map.getZoom(), {animate:!1});
             if(t - lastNet > 1000) { apiCall('/ambulance/location', 'POST', {latitude:lat, longitude:lng, timestamp:Date.now()}); lastNet = t; }
             animId = requestAnimationFrame(anim);
@@ -230,8 +237,7 @@ function resetMap() {
     startMarker=endMarker=ambMkr=routingControl=null; trafficMkrs={}; routeCoords=[]; detectedLights=[]; updateUI(); log("Map reset.");
 }
 
-async function setDensity(d) { currentDensity = d; await apiCall('/traffic/config', 'POST', {density:d}); log(`Speed adjusted for ${d} density.`); }
-
+async function setDensity(d) { currentDensity = d; await apiCall('/traffic/config', 'POST', {density:d}); log(`Density set to ${d}.`); }
 initMap();
 </script>
 </body>
