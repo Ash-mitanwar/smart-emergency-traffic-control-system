@@ -1,244 +1,628 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>Smart Traffic Control</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
-<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-<style>
-body{font-family:'Roboto',sans-serif;margin:0;padding:0;height:100vh;overflow:hidden;background:#f8f9fa}
-#main-container{display:flex;height:100%;width:100%;position:relative}
-#map{flex:1;height:100%;width:100%;position:absolute;top:0;left:0;z-index:1}
-#mobile-menu-btn{display:none;position:absolute;top:20px;right:20px;z-index:1003;background:#fff;border:none;border-radius:8px;width:45px;height:45px;box-shadow:0 2px 6px rgba(0,0,0,.3);cursor:pointer;font-size:24px}
-.sidebar{width:340px;background:#fff;padding:20px;box-shadow:2px 0 10px rgba(0,0,0,.1);display:flex;flex-direction:column;gap:15px;z-index:1002;overflow-y:auto;transition:transform .3s ease}
-#search-container{position:absolute;top:20px;left:20px;z-index:1001;display:flex;flex-direction:column;gap:10px;pointer-events:none}
-.search-box-wrapper{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.3);width:350px;pointer-events:auto}
-.leaflet-control-geocoder{box-shadow:none;border:none;margin:0;width:100%}
-.leaflet-control-geocoder-form input{width:100%;border:none;padding:12px 15px;font-size:15px;outline:0;height:45px}
-.leaflet-control-geocoder-icon{display:none}
-h2{margin:0;color:#202124;font-size:1.1em;font-weight:500}
-.btn{padding:12px 20px;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:14px;width:100%;margin-bottom:8px;transition:.2s;text-transform:uppercase;box-shadow:0 2px 4px rgba(0,0,0,.1)}
-.btn-primary{background:#1a73e8;color:#fff}.btn-primary:hover{background:#1557b0}.btn-danger{background:#d93025;color:#fff}.btn-success{background:#1e8e3e;color:#fff}.btn-warning{background:#f39c12;color:#fff}.btn-info{background:#00bcd4;color:#fff}.btn-secondary{background:#f1f3f4;color:#3c4043;border:1px solid #dadce0;box-shadow:none}.btn-secondary:hover{background:#e8eaed}
-.log-panel{background:#f1f3f4;color:#3c4043;padding:10px;border-radius:8px;flex-grow:1;overflow-y:auto;font-family:monospace;font-size:12px;min-height:100px}
-.log-entry{border-bottom:1px solid #dadce0;padding:4px 0}
-.traffic-list{max-height:250px;overflow-y:auto;border:1px solid #eee;border-radius:8px;background:#fff}
-.traffic-item{padding:12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
-.signal-indicator{display:flex;align-items:center;gap:10px}
-.traffic-dot{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 4px rgba(0,0,0,.5)}
-.dot-RED,.icon-RED{background:#ff3b30}.dot-GREEN,.icon-GREEN{background:#2ecc71}.dot-YELLOW,.icon-YELLOW{background:#f1c40f}
-.icon-RED{box-shadow:0 0 12px #ff3b30}.icon-GREEN{box-shadow:0 0 12px #2ecc71}.icon-YELLOW{box-shadow:0 0 12px #f1c40f}
-.timer-badge{background:#333;color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;font-family:monospace;min-width:24px;text-align:center}
-.timer-badge.override{background:#1a73e8;animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
-.leaflet-div-icon{background:transparent;border:none}
-.map-signal-container{display:flex;flex-direction:column;align-items:center;transform:translateY(-50%)}
-.traffic-icon{width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 3px 6px rgba(0,0,0,.4)}
-.map-timer{background:rgba(0,0,0,.8);color:#fff;font-family:monospace;font-size:12px;padding:2px 6px;border-radius:10px;margin-top:4px;border:1px solid rgba(255,255,255,.3)}
-.ambulance-icon{font-size:32px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.4))}
-.toggle-container{display:flex;align-items:center;margin-bottom:15px;font-size:14px;background:#f8f9fa;padding:10px;border-radius:8px}
-.toggle-switch{position:relative;display:inline-block;width:40px;height:20px;margin-right:10px}
-.toggle-switch input{opacity:0;width:0;height:0}
-.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:20px;transition:.4s}
-.slider:before{position:absolute;content:"";height:16px;width:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.4s}
-input:checked+.slider{background:#1a73e8}input:checked+.slider:before{transform:translateX(20px)}
-.user-info{background:#e8eaed;padding:12px;border-radius:8px;margin-bottom:15px;font-size:14px;border-left:4px solid #1a73e8}
-#toast{visibility:hidden;min-width:250px;background:rgba(51,51,51,.9);color:#fff;text-align:center;border-radius:8px;padding:16px;position:fixed;z-index:3000;left:50%;bottom:30px;transform:translateX(-50%);font-size:14px;opacity:0;transition:.3s;backdrop-filter:blur(5px)}
-#toast.show{visibility:visible;opacity:1;bottom:50px}
-.context-menu-btn{display:block;width:100%;text-align:left;padding:10px;margin-bottom:5px;border:none;border-radius:4px;cursor:pointer;background:#f1f3f4;font-size:14px}
-
-/* --- Fixed Mobile Sidebar Overlay Issue --- */
-@media (max-width:768px){
-    #mobile-menu-btn{display:block}
-    .sidebar{position:absolute;top:0;right:0;height:100vh;width:85%;max-width:350px;transform:translateX(100%);padding-bottom:40px}
-    .sidebar.open{transform:translateX(0);box-shadow:-5px 0 15px rgba(0,0,0,.2)}
-    #search-container{top:20px;left:10px;right:70px;width:auto; z-index:1000;} /* Lower z-index than sidebar overlay */
-    .search-box-wrapper{width:100%}
-    .leaflet-control-geocoder-form input{font-size:16px;padding:10px 12px;height:40px}
-    .leaflet-control-zoom{display:none}
-    #mobile-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1001}
-    #mobile-overlay.show{display:block}
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Traffic Control</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <style>
+        body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; background: #f8f9fa; }
+        #main-container { display: flex; height: 100%; width: 100%; position: relative; }
+        #map { flex: 1; height: 100%; width: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+        #mobile-menu-btn { display: none; position: absolute; top: 20px; right: 20px; z-index: 1003; background: #fff; border: none; border-radius: 8px; width: 45px; height: 45px; box-shadow: 0 2px 6px rgba(0,0,0,.3); cursor: pointer; font-size: 24px; text-align: center; }
+        .sidebar { width: 340px; background: #fff; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,.1); display: flex; flex-direction: column; gap: 15px; z-index: 1002; overflow-y: auto; transition: transform .3s ease; }
+        #search-container { position: absolute; top: 20px; left: 20px; z-index: 1001; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .search-box-wrapper { background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.3); width: 350px; pointer-events: auto; }
+        .leaflet-control-geocoder { box-shadow: none; border: none; margin: 0; width: 100%; }
+        .leaflet-control-geocoder-form input { width: 100%; border: none; padding: 12px 15px; font-size: 15px; outline: 0; height: 45px; }
+        .leaflet-control-geocoder-icon { display: none; }
+        h2 { margin: 0; color: #202124; font-size: 1.1em; font-weight: 500; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px; width: 100%; margin-bottom: 8px; transition: .2s; text-transform: uppercase; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+        .btn-primary { background: #1a73e8; color: #fff; } .btn-primary:hover { background: #1557b0; }
+        .btn-danger { background: #d93025; color: #fff; } .btn-success { background: #1e8e3e; color: #fff; }
+        .btn-warning { background: #f39c12; color: #fff; } .btn-info { background: #00bcd4; color: #fff; }
+        .btn-secondary { background: #f1f3f4; color: #3c4043; border: 1px solid #dadce0; box-shadow: none; } .btn-secondary:hover { background: #e8eaed; }
+        .log-panel { background: #f1f3f4; color: #3c4043; padding: 10px; border-radius: 8px; flex-grow: 1; overflow-y: auto; font-family: monospace; font-size: 12px; min-height: 100px; }
+        .log-entry { border-bottom: 1px solid #dadce0; padding: 4px 0; }
+        .traffic-list { max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; background: #fff; }
+        .traffic-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .signal-indicator { display: flex; align-items: center; gap: 10px; }
+        .traffic-dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 4px rgba(0,0,0,.5); }
+        .dot-RED, .icon-RED { background: #ff3b30; } .dot-GREEN, .icon-GREEN { background: #2ecc71; } .dot-YELLOW, .icon-YELLOW { background: #f1c40f; }
+        .icon-RED { box-shadow: 0 0 12px #ff3b30; } .icon-GREEN { box-shadow: 0 0 12px #2ecc71; } .icon-YELLOW { box-shadow: 0 0 12px #f1c40f; }
+        .timer-badge { background: #333; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-family: monospace; min-width: 24px; text-align: center; }
+        .timer-badge.override { background: #1a73e8; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+        .leaflet-div-icon { background: transparent; border: none; }
+        .map-signal-container { display: flex; flex-direction: column; align-items: center; transform: translateY(-50%); }
+        .traffic-icon { width: 20px; height: 20px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 3px 6px rgba(0,0,0,.4); }
+        .map-timer { background: rgba(0,0,0,.8); color: #fff; font-family: monospace; font-size: 12px; padding: 2px 6px; border-radius: 10px; margin-top: 4px; border: 1px solid rgba(255,255,255,.3); }
+        .ambulance-icon { font-size: 32px; filter: drop-shadow(0 3px 4px rgba(0,0,0,.4)); text-align: center; }
+        .toggle-container { display: flex; align-items: center; margin-bottom: 15px; font-size: 14px; background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 20px; margin-right: 10px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 20px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: .4s; }
+        input:checked + .slider { background: #1a73e8; } input:checked + .slider:before { transform: translateX(20px); }
+        .user-info { background: #e8eaed; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; border-left: 4px solid #1a73e8; }
+        #toast { visibility: hidden; min-width: 250px; background: rgba(51,51,51,.9); color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 3000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 14px; opacity: 0; transition: .3s; backdrop-filter: blur(5px); }
+        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+        .context-menu-btn { display: block; width: 100%; text-align: left; padding: 10px; margin-bottom: 5px; border: none; border-radius: 4px; cursor: pointer; background: #f1f3f4; font-size: 14px; }
+        .context-menu-btn:hover { background: #e8eaed; }
+        @media (max-width: 768px) {
+            #mobile-menu-btn { display: block; }
+            .sidebar { position: absolute; top: 0; right: 0; height: 100vh; width: 85%; max-width: 350px; transform: translateX(100%); padding-bottom: 40px; }
+            .sidebar.open { transform: translateX(0); box-shadow: -5px 0 15px rgba(0,0,0,.2); }
+            #search-container { top: 20px; left: 10px; right: 70px; width: auto; }
+            .search-box-wrapper { width: 100%; }
+            .leaflet-control-geocoder-form input { font-size: 16px; padding: 10px 12px; height: 40px; }
+            .leaflet-control-zoom { display: none; }
+            #mobile-overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 1001; }
+            #mobile-overlay.show { display: block; }
+        }
+    </style>
 </head>
 <body>
 <div id="main-container">
-<div id="map"></div><div id="search-container"></div>
-<button id="mobile-menu-btn" onclick="toggleMenu()">☰</button><div id="mobile-overlay" onclick="toggleMenu()"></div>
-<div class="sidebar" id="sidebar">
-<button class="btn btn-secondary" style="margin-bottom:15px;display:none" id="mobile-close-btn" onclick="toggleMenu()">❌ Close Menu</button>
-<div class="user-info" id="userInfoDisplay"></div><button class="btn btn-secondary" style="margin-bottom:20px" onclick="logout()">Logout</button>
-<h2>🚑 Navigation Controls</h2>
-<div class="toggle-container"><label class="toggle-switch"><input type="checkbox" id="trafficToggle" onchange="toggleLayer()"><span class="slider"></span></label><span style="font-weight:500">Live Traffic Overlay</span></div>
-<div><button class="btn btn-info" onclick="manualDetectLights()">🔍 Detect Lights</button><button class="btn btn-primary" onclick="manualStart()">🚀 Start Navigation</button><button class="btn btn-danger" onclick="resetMap()">❌ Clear Route</button><hr style="border-top:1px solid #eee;margin:15px 0"><button class="btn btn-warning" id="addSimLightBtn" onclick="toggleAddLightMode()">➕ Add Custom Signal</button></div>
-<div style="margin-top:15px;background:#f8f9fa;padding:12px;border-radius:8px"><label style="font-size:13px;color:#5f6368;font-weight:500;display:block;margin-bottom:8px">Traffic Density Override</label>
-<div style="display:flex;gap:10px"><button class="btn btn-danger" style="flex:1;margin:0" onclick="setDensity('HIGH')">High</button><button class="btn btn-success" style="flex:1;margin:0" onclick="setDensity('LOW')">Low</button></div>
-<div style="margin-top:10px;font-size:14px;text-align:center">Speed: <strong id="speedVal" style="color:#1a73e8;font-size:16px">Auto</strong></div></div>
-<hr style="border-top:1px solid #eee;width:100%;margin:15px 0">
-<h2>🚦 Route Signals (<span id="lightCount">0</span>)</h2><div id="traffic-list" class="traffic-list"><div style="color:#70757a;font-size:13px;padding:15px;text-align:center">No traffic lights detected.</div></div>
-<h2 style="margin-top:15px">📜 System Log</h2><div id="activity-log" class="log-panel"></div>
-</div></div>
+    <div id="map"></div>
+    <div id="search-container"></div>
+    <button id="mobile-menu-btn" onclick="toggleMenu()">☰</button>
+    <div id="mobile-overlay" onclick="toggleMenu()"></div>
+    
+    <div class="sidebar" id="sidebar">
+        <button class="btn btn-secondary" style="margin-bottom: 15px; display: none;" id="mobile-close-btn" onclick="toggleMenu()">❌ Close Menu</button>
+        <div class="user-info" id="userInfoDisplay"></div>
+        <button class="btn btn-secondary" style="margin-bottom: 20px;" onclick="logout()">Logout</button>
+        
+        <h2>🚑 Navigation Controls</h2>
+        <div class="toggle-container">
+            <label class="toggle-switch">
+                <input type="checkbox" id="trafficToggle" onchange="toggleLayer()">
+                <span class="slider"></span>
+            </label>
+            <span style="font-weight: 500">Live Traffic Overlay</span>
+        </div>
+        
+        <div>
+            <button class="btn btn-info" onclick="manualDetectLights()">🔍 Detect Lights</button>
+            <button class="btn btn-primary" onclick="manualStart()">🚀 Start Navigation</button>
+            <button class="btn btn-danger" onclick="resetMap()">❌ Clear Route</button>
+            <hr style="border-top: 1px solid #eee; margin: 15px 0;">
+            <button class="btn btn-warning" id="addSimLightBtn" onclick="toggleAddLightMode()">➕ Add Custom Signal</button>
+        </div>
+        
+        <div style="margin-top: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px;">
+            <label style="font-size: 13px; color: #5f6368; font-weight: 500; display: block; margin-bottom: 8px;">Traffic Density Override</label>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-danger" style="flex:1; margin: 0;" onclick="setDensity('HIGH')">High</button>
+                <button class="btn btn-success" style="flex:1; margin: 0;" onclick="setDensity('LOW')">Low</button>
+            </div>
+            <div style="margin-top: 10px; font-size: 14px; text-align: center;">Speed: <strong id="speedVal" style="color: #1a73e8; font-size: 16px;">Auto</strong></div>
+        </div>
+        
+        <hr style="border-top: 1px solid #eee; width: 100%; margin: 15px 0;">
+        <h2>🚦 Route Signals (<span id="lightCount">0</span>)</h2>
+        <div id="traffic-list" class="traffic-list">
+            <div style="color: #70757a; font-size: 13px; padding: 15px; text-align: center;">No traffic lights detected.</div>
+        </div>
+        <h2 style="margin-top: 15px;">📜 System Log</h2>
+        <div id="activity-log" class="log-panel"></div>
+    </div>
+</div>
 <div id="toast"></div>
 
 <script>
-const API = '/api'; 
-let map, routingCtrl, baseLyr, startMkr, endMkr, ambMkr, animId, pollInt, user = JSON.parse(localStorage.getItem('currentUser'));
-let routeCoords = [], routeInsts = [], detectedLights = [], trafficMkrs = {}, currentDensity = "LOW", isAddMode = false, lastT=0, lastNet=0;
+    // --- Global Variables ---
+    const API = '/api'; 
+    let map, routingControl, baseLayer, startMarker, endMarker, ambulanceMarker;
+    let animId, pollInterval;
+    let routeCoords = [], routeInsts = [], detectedLights = [], trafficMarkers = {};
+    let currentDensity = "LOW";
+    let isAddMode = false;
+    let lastTime = 0, lastNetworkTime = 0;
+    let user = null;
 
-if (!user) window.location.href = 'login.html';
-const emj = user.vehicleType === 'POLICE'?'🚓':user.vehicleType==='FIRE_TRUCK'?'🚒':'🚑';
-document.getElementById('userInfoDisplay').innerHTML = `Driver: <strong>${user.username}</strong><br>Unit: ${emj} <strong>${user.vehicleType.replace('_', ' ')}</strong><br>Plate: <strong>${user.registrationNumber}</strong>`;
-
-const log = m => document.getElementById('activity-log').insertAdjacentHTML('afterbegin', `<div class="log-entry"><span style="color:#1a73e8;font-weight:bold">[${new Date().toLocaleTimeString([],{hour12:!1})}]</span> ${m}</div>`);
-const showToast = m => { const t = document.getElementById("toast"); t.innerText = m; t.className = "show"; setTimeout(() => t.className = "", 3000); };
-const apiCall = async (e, m='GET', b) => { try { const r = await fetch(API+e, {method:m, headers:{'Content-Type':'application/json'}, body:b?JSON.stringify(b):null}); return r.ok && (m==='GET'||e.includes('batch')||e.includes('route')) ? await r.json().catch(()=>null) : null; } catch(x){ return null; } };
-const logout = () => { localStorage.removeItem('currentUser'); window.location.href = 'login.html'; };
-
-function toggleMenu() {
-    const s = document.getElementById('sidebar'), o = document.getElementById('mobile-overlay'), c = document.getElementById('mobile-close-btn');
-    s.classList.toggle('open'); o.classList.toggle('show'); if(window.innerWidth<=768) c.style.display = s.classList.contains('open') ? 'block' : 'none';
-}
-window.addEventListener('resize', () => { if (window.innerWidth>768) { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mobile-overlay').classList.remove('show'); document.getElementById('mobile-close-btn').style.display = 'none'; } });
-
-function initMap() {
-    map = L.map('map', {zoomControl:!1}).setView([30.7333, 76.7794], 13);
-    if(window.innerWidth>768) L.control.zoom({position:'bottomright'}).addTo(map);
-    baseLyr = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {maxZoom:20, subdomains:['mt0','mt1','mt2','mt3']}).addTo(map);
-    const gc = L.Control.Geocoder.nominatim(), sc = document.getElementById('search-container');
-    ['start', 'end'].forEach(t => {
-        const w = document.createElement('div'); w.className = 'search-box-wrapper';
-        w.appendChild(L.Control.geocoder({placeholder:`Choose ${t}...`, geocoder:gc, defaultMarkGeocode:!1})
-            .on('markgeocode', e => { setMkr(t, e.geocode.center, t); document.querySelectorAll('input').forEach(i=>i.blur()); }).onAdd(map));
-        sc.appendChild(w);
-    });
-    map.on('click', e => isAddMode ? addCustomLight(e.latlng) : null);
-    
-    // Add right click support back. Leaflet maps touch hold to context menu naturally on mobile.
-    map.on('contextmenu', e => {
-        if(isAddMode) return;
-        const p = L.popup().setLatLng(e.latlng).setContent(`<button class="context-menu-btn" onclick="setMkr('start',[${e.latlng.lat},${e.latlng.lng}],'Start');map.closePopup()">📍 Set Start</button><button class="context-menu-btn" onclick="setMkr('end',[${e.latlng.lat},${e.latlng.lng}],'End');map.closePopup()">🏁 Set End</button>`).openOn(map);
-    });
-}
-
-function setMkr(t, ll, ttl) {
-    if(t==='start') { startMarker?.remove(); startMarker = L.marker(ll, {draggable:!0}).addTo(map).bindPopup(ttl).openPopup(); }
-    else { endMarker?.remove(); endMarker = L.marker(ll, {draggable:!0}).addTo(map).bindPopup(ttl).openPopup(); }
-    log(`📍 ${ttl} set.`); if (startMarker && endMarker) calcRoute();
-}
-
-function toggleLayer() { baseLyr.setUrl(`https://{s}.google.com/vt/lyrs=m${document.getElementById('trafficToggle').checked?',traffic':''}&x={x}&y={y}&z={z}`); }
-function toggleAddLightMode() {
-    isAddMode = !isAddMode; const b = document.getElementById('addSimLightBtn');
-    b.style.background = isAddMode ? '#2ecc71' : '#f39c12'; b.innerText = isAddMode ? 'Tap Map to Place...' : '➕ Add Custom Signal';
-    document.getElementById('map').style.cursor = isAddMode ? 'crosshair' : '';
-    if(isAddMode) showToast("Tap map to add signal.");
-}
-
-async function addCustomLight(ll) {
-    detectedLights.push({id:`c-${Date.now()}`, name:`Manual Signal`, location:{latitude:ll.lat, longitude:ll.lng}, status:"RED", trafficDensity:"LOW"});
-    await apiCall('/traffic-lights/reset', 'POST'); await apiCall('/traffic-lights/batch', 'POST', detectedLights); updateUI();
-}
-
-function calcRoute() {
-    if(!startMarker||!endMarker) return; routingControl?.remove(); document.activeElement.blur(); log("🔄 Calc route...");
-    routingControl = L.Routing.control({waypoints:[startMarker.getLatLng(), endMarker.getLatLng()], show:!1, createMarker:()=>null, lineOptions:{styles:[{color:'#4285F4',weight:6}]}})
-        .on('routesfound', e => { routeCoords = e.routes[0].coordinates; routeInsts = e.routes[0].instructions; log(`🛣️ Route: ${(e.routes[0].summary.totalDistance/1000).toFixed(1)} km`); }).addTo(map);
-}
-
-const isNear = p => routeCoords.some(c => p.distanceTo(c) < 150);
-
-async function autoDetectLights() {
-    if(!routeCoords.length) return alert("Calc route first."); log("🔍 Scanning...");
-    const b = L.latLngBounds(routeCoords), q = `[out:json][timeout:25];(node["highway"="traffic_signals"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}););out body;`;
-    detectedLights = [];
-    try {
-        const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
-        (await res.json()).elements.forEach(n => { if(isNear(L.latLng(n.lat, n.lon))) detectedLights.push({id:`r-${n.id}`, name:`Real Signal`, location:{latitude:n.lat, longitude:n.lon}, status:"RED", trafficDensity:"LOW"}); });
-    } catch(e){}
-    
-    routeInsts.forEach((inst, i) => {
-        if(inst.type==='Head' || inst.type==='Destination') return;
-        const ll = routeCoords[inst.index];
-        if(ll && (['Right','Left','SharpRight','SharpLeft','UTurn'].includes(inst.type) || (inst.road && routeInsts[i+1]?.road && inst.road.trim()!==routeInsts[i+1].road.trim()))) {
-            if(!detectedLights.some(l => ll.distanceTo(L.latLng(l.location.latitude, l.location.longitude)) < 150))
-                detectedLights.push({id:`int-${i}`, name:inst.road?`Junction at ${inst.road}`:`Intersection ${i}`, location:{latitude:ll.lat, longitude:ll.lng}, status:"RED", trafficDensity:"LOW"});
+    // --- Authentication ---
+    function checkAuth() {
+        const userStr = localStorage.getItem('currentUser');
+        if (!userStr) {
+            window.location.href = 'login.html';
+            return;
         }
-    });
+        user = JSON.parse(userStr);
+        const emoji = user.vehicleType === 'POLICE' ? '🚓' : (user.vehicleType === 'FIRE_TRUCK' ? '🚒' : '🚑');
+        document.getElementById('userInfoDisplay').innerHTML = `
+            Driver: <strong>${user.username}</strong><br>
+            Unit: ${emoji} <strong>${user.vehicleType.replace('_', ' ')}</strong><br>
+            Plate: <strong>${user.registrationNumber}</strong>
+        `;
+    }
 
-    let acc = 0;
-    for(let i=1; i<routeCoords.length; i++) {
-        let p1 = L.latLng(routeCoords[i-1]), p2 = L.latLng(routeCoords[i]); acc += p1.distanceTo(p2);
-        if(acc >= 600) {
-            if(!detectedLights.some(l => p2.distanceTo(L.latLng(l.location.latitude, l.location.longitude)) < 150))
-                detectedLights.push({id:`s-${i}`, name:`Sim Signal`, location:{latitude:p2.lat, longitude:p2.lng}, status:"RED", trafficDensity:"LOW"});
-            acc = 0;
+    function logout() {
+        localStorage.removeItem('currentUser');
+        window.location.href = 'login.html';
+    }
+
+    // --- Utilities ---
+    function log(msg) {
+        const timeStr = new Date().toLocaleTimeString([], {hour12: false});
+        const logHtml = `<div class="log-entry"><span style="color:#1a73e8; font-weight:bold;">[${timeStr}]</span> ${msg}</div>`;
+        document.getElementById('activity-log').insertAdjacentHTML('afterbegin', logHtml);
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById("toast");
+        toast.innerText = msg;
+        toast.className = "show";
+        setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        try {
+            const response = await fetch(API + endpoint, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: body ? JSON.stringify(body) : null
+            });
+            if (!response.ok) {
+                console.error(`API Error: ${response.status} on ${endpoint}`);
+                return null;
+            }
+            if (method === 'GET' || endpoint.includes('batch') || endpoint.includes('route')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : null;
+            }
+            return null;
+        } catch (error) {
+            console.error(`Network Error: ${endpoint}`, error);
+            return null;
         }
     }
-    
-    log(`✅ Configured ${detectedLights.length} signals.`);
-    await apiCall('/traffic-lights/reset', 'POST'); if(detectedLights.length) await apiCall('/traffic-lights/batch', 'POST', detectedLights); updateUI();
-}
 
-async function manualDetectLights() { routeCoords.length ? await autoDetectLights() : alert("Set Start/End!"); }
-async function manualStart() { 
-    if(!routeCoords.length) return alert("Set Start/End!"); 
-    if(!detectedLights.length) await autoDetectLights();
-    await apiCall('/route', 'POST', routeCoords.map(c => ({latitude:c.lat, longitude:c.lng})));
-    if(window.innerWidth<=768) toggleMenu(); startSim(); 
-}
-
-function startSim() {
-    cancelAnimationFrame(animId); let i=0, prg=0; lastT = lastNet = performance.now(); log(`🚀 Commencing route.`);
-    if(routeCoords.length) apiCall('/ambulance/location', 'POST', {latitude:routeCoords[0].lat, longitude:routeCoords[0].lng, timestamp:Date.now()});
-    
-    function anim(t) {
-        if(i >= routeCoords.length-1) return log("🏁 Reached destination."), document.getElementById('speedVal').innerText="0 km/h";
-        let dt = t - lastT; lastT = t;
-        let spd = currentDensity==="HIGH" ? 30 : 80; document.getElementById('speedVal').innerText = spd + " km/h";
-        let dist = (spd/3.6) * (dt/1000);
-
-        while(dist>0 && i<routeCoords.length-1) {
-            let d = L.latLng(routeCoords[i]).distanceTo(routeCoords[i+1]);
-            if(d<0.1){ i++; prg=0; continue; }
-            let rem = d * (1-prg);
-            if(dist<rem){ prg += dist/d; dist=0; } else { dist -= rem; prg=0; i++; }
-        }
-        if(i < routeCoords.length-1) {
-            let lat = routeCoords[i].lat + (routeCoords[i+1].lat - routeCoords[i].lat)*prg, lng = routeCoords[i].lng + (routeCoords[i+1].lng - routeCoords[i].lng)*prg;
-            if(!ambMkr) ambMkr = L.marker([lat,lng],{icon:L.divIcon({className:'',html:`<div class="ambulance-icon">${emj}</div>`,iconSize:[30,30]}), zIndexOffset:1000}).addTo(map);
-            else ambMkr.setLatLng([lat,lng]); map.setView([lat,lng], map.getZoom(), {animate:!1});
-            if(t - lastNet > 1000) { apiCall('/ambulance/location', 'POST', {latitude:lat, longitude:lng, timestamp:Date.now()}); lastNet = t; }
-            animId = requestAnimationFrame(anim);
+    // --- UI Interactions ---
+    function toggleMenu() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        const closeBtn = document.getElementById('mobile-close-btn');
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('show');
+        if (window.innerWidth <= 768) {
+            closeBtn.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
         }
     }
-    animId = requestAnimationFrame(anim); if(!pollInt) pollInt = setInterval(async ()=>{ let l=await apiCall('/traffic-lights'); if(l&&l.length){detectedLights=l;updateUI();} }, 1000);
-}
 
-function updateUI() {
-    document.getElementById('lightCount').innerText = detectedLights.length;
-    const list = document.getElementById('traffic-list'); list.innerHTML = '';
-    if(!detectedLights.length) return list.innerHTML = '<div style="padding:20px;text-align:center;color:#70757a">No signals found.</div>';
-    
-    detectedLights.forEach(l => {
-        const dClass = `dot-${l.status}`, iClass = `icon-${l.status}`, tmStr = l.overridden ? 'OVR' : l.timer+'s';
-        list.insertAdjacentHTML('beforeend', `<div class="traffic-item"><div class="signal-indicator"><span class="traffic-dot ${dClass}"></span><span style="font-weight:500">${l.name}</span></div><div class="timer-badge ${l.overridden?'override':''}">${tmStr}</div></div>`);
-        const iHtml = `<div class="map-signal-container"><div class="traffic-icon ${iClass}"></div><div class="map-timer" style="${l.overridden?'color:#8ab4f8;border-color:#8ab4f8':''}">${tmStr}</div></div>`;
-        const icon = L.divIcon({className:'leaflet-div-icon', html:iHtml, iconSize:[40,40], iconAnchor:[20,20]});
-        if(trafficMkrs[l.id]) trafficMkrs[l.id].setIcon(icon); else trafficMkrs[l.id] = L.marker([l.location.latitude, l.location.longitude], {icon}).addTo(map).bindPopup(l.name);
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('mobile-overlay').classList.remove('show');
+            document.getElementById('mobile-close-btn').style.display = 'none';
+        }
     });
-}
 
-function resetMap() {
-    [startMarker,endMarker,ambMkr,routingControl].forEach(m=>m?.remove()); Object.values(trafficMkrs).forEach(m=>m.remove());
-    cancelAnimationFrame(animId); clearInterval(pollInt); pollInt=null;
-    startMarker=endMarker=ambMkr=routingControl=null; trafficMkrs={}; routeCoords=[]; detectedLights=[]; updateUI(); log("Map reset.");
-}
+    function toggleLayer() {
+        const isTraffic = document.getElementById('trafficToggle').checked;
+        const layerUrl = `https://{s}.google.com/vt/lyrs=m${isTraffic ? ',traffic' : ''}&x={x}&y={y}&z={z}`;
+        baseLayer.setUrl(layerUrl);
+        log(`🚦 Live Traffic Layer: ${isTraffic ? 'ON' : 'OFF'}`);
+    }
 
-async function setDensity(d) { currentDensity = d; await apiCall('/traffic/config', 'POST', {density:d}); log(`Density set to ${d}.`); }
-initMap();
+    function toggleAddLightMode() {
+        isAddMode = !isAddMode;
+        const btn = document.getElementById('addSimLightBtn');
+        if (isAddMode) {
+            btn.style.backgroundColor = '#2ecc71';
+            btn.innerText = 'Tap Map to Place...';
+            document.getElementById('map').style.cursor = 'crosshair';
+            showToast("Click or tap anywhere on the map to place a custom signal.");
+        } else {
+            btn.style.backgroundColor = '#f39c12';
+            btn.innerText = '➕ Add Custom Signal';
+            document.getElementById('map').style.cursor = '';
+        }
+    }
+
+    async function setDensity(density) {
+        currentDensity = density;
+        await apiCall('/traffic/config', 'POST', { density: density });
+        log(`Traffic density set to ${density}.`);
+    }
+
+    // --- Map Initialization ---
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView([30.7333, 76.7794], 13);
+        if (window.innerWidth > 768) {
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+        }
+
+        baseLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps'
+        }).addTo(map);
+
+        // Geocoder (Search Boxes)
+        const geocoder = L.Control.Geocoder.nominatim();
+        const searchContainer = document.getElementById('search-container');
+
+        ['start', 'end'].forEach(type => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'search-box-wrapper';
+            const placeholder = type === 'start' ? 'Choose starting point...' : 'Choose destination...';
+            const title = type === 'start' ? 'Start' : 'Destination';
+            
+            const control = L.Control.geocoder({
+                placeholder: placeholder,
+                geocoder: geocoder,
+                defaultMarkGeocode: false
+            }).on('markgeocode', function(e) {
+                setMarker(type, e.geocode.center, title);
+                document.querySelectorAll('.leaflet-control-geocoder-form input').forEach(i => i.blur());
+            });
+            wrapper.appendChild(control.onAdd(map));
+            searchContainer.appendChild(wrapper);
+        });
+
+        // Left Click Handler (Set Markers or Custom Lights)
+        map.on('click', function(e) {
+            if (isAddMode) {
+                addCustomLight(e.latlng);
+                toggleAddLightMode(); // Auto-disable mode after one click
+            } else {
+                if (!startMarker) {
+                    setMarker('start', e.latlng, 'Start');
+                } else if (!endMarker) {
+                    setMarker('end', e.latlng, 'Destination');
+                }
+            }
+        });
+
+        // Right Click / Long Press (Context Menu)
+        map.on('contextmenu', function(e) {
+            if (isAddMode) return;
+            const popupContent = document.createElement('div');
+            popupContent.innerHTML = `
+                <div style="min-width: 140px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 4px;">Set Location</div>
+                    <button class="context-menu-btn" id="ctx-start">📍 Set as Start</button>
+                    <button class="context-menu-btn" id="ctx-end">🏁 Set as Destination</button>
+                </div>
+            `;
+            const popup = L.popup().setLatLng(e.latlng).setContent(popupContent).openOn(map);
+            
+            popupContent.querySelector('#ctx-start').addEventListener('click', () => {
+                setMarker('start', e.latlng, 'Start');
+                map.closePopup();
+            });
+            popupContent.querySelector('#ctx-end').addEventListener('click', () => {
+                setMarker('end', e.latlng, 'Destination');
+                map.closePopup();
+            });
+        });
+    }
+
+    // --- Core Logic ---
+    function setMarker(type, latlng, title) {
+        if (type === 'start') {
+            if (startMarker) map.removeLayer(startMarker);
+            startMarker = L.marker(latlng, { draggable: true }).addTo(map).bindPopup(title).openPopup();
+        } else {
+            if (endMarker) map.removeLayer(endMarker);
+            endMarker = L.marker(latlng, { draggable: true }).addTo(map).bindPopup(title).openPopup();
+        }
+        log(`📍 ${title} set.`);
+        if (startMarker && endMarker) calculateRoute();
+    }
+
+    function calculateRoute() {
+        if (!startMarker || !endMarker) return;
+        if (routingControl) map.removeControl(routingControl);
+        
+        log("🔄 Calculating route...");
+        if (document.activeElement) document.activeElement.blur(); // Hide mobile keyboard
+        
+        routingControl = L.Routing.control({
+            waypoints: [startMarker.getLatLng(), endMarker.getLatLng()],
+            routeWhileDragging: false,
+            show: false, // Hide instruction panel
+            createMarker: () => null,
+            lineOptions: { styles: [{ color: '#4285F4', weight: 6, opacity: 0.8 }] }
+        }).on('routesfound', function(e) {
+            routeCoords = e.routes[0].coordinates;
+            routeInsts = e.routes[0].instructions;
+            log(`🛣️ Route calculated: ${(e.routes[0].summary.totalDistance / 1000).toFixed(1)} km`);
+        }).addTo(map);
+    }
+
+    async function addCustomLight(latlng) {
+        const newLight = {
+            id: `c-${Date.now()}`,
+            name: `Manual Signal`,
+            location: { latitude: latlng.lat, longitude: latlng.lng },
+            status: "RED",
+            trafficDensity: "LOW"
+        };
+        detectedLights.push(newLight);
+        log(`📍 Added custom signal.`);
+        await apiCall('/traffic-lights/reset', 'POST');
+        await apiCall('/traffic-lights/batch', 'POST', detectedLights);
+        fetchTraffic(); // Force update UI
+    }
+
+    async function autoDetectLights() {
+        if (routeCoords.length === 0) return alert("Calculate route first!");
+        log("🔍 Scanning for traffic signals...");
+        
+        const b = L.latLngBounds(routeCoords);
+        const query = `[out:json][timeout:25];(node["highway"="traffic_signals"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}););out body;`;
+        
+        detectedLights = [];
+        
+        // 1. Try Overpass API for real lights
+        try {
+            const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            if (data && data.elements) {
+                data.elements.forEach(n => {
+                    const point = L.latLng(n.lat, n.lon);
+                    if (routeCoords.some(c => point.distanceTo(c) < 150)) {
+                        detectedLights.push({
+                            id: `r-${n.id}`, name: `Real Signal`,
+                            location: { latitude: n.lat, longitude: n.lon },
+                            status: "RED", trafficDensity: "LOW"
+                        });
+                    }
+                });
+            }
+        } catch (e) { log("⚠️ Network error during API scan."); }
+
+        // 2. Add Intersection Lights
+        if (routeInsts) {
+            routeInsts.forEach((inst, i) => {
+                if (inst.type === 'Head' || inst.type === 'Destination') return;
+                
+                const isTurn = ['Right', 'Left', 'SharpRight', 'SharpLeft', 'UTurn'].includes(inst.type);
+                const isRoadChange = inst.road && routeInsts[i+1]?.road && inst.road.trim() !== routeInsts[i+1].road.trim();
+                
+                if (isTurn || isRoadChange) {
+                    const ll = routeCoords[inst.index];
+                    if (ll) {
+                        const isTooClose = detectedLights.some(l => L.latLng(l.location.latitude, l.location.longitude).distanceTo(ll) < 150);
+                        if (!isTooClose) {
+                            detectedLights.push({
+                                id: `int-${i}`, name: inst.road ? `Junction: ${inst.road}` : `Intersection ${i}`,
+                                location: { latitude: ll.lat, longitude: ll.lng },
+                                status: "RED", trafficDensity: "LOW"
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        // 3. Fill long gaps
+        let distAcc = 0;
+        for (let i = 1; i < routeCoords.length; i++) {
+            const p1 = L.latLng(routeCoords[i-1]);
+            const p2 = L.latLng(routeCoords[i]);
+            distAcc += p1.distanceTo(p2);
+            
+            if (distAcc >= 600) {
+                const isTooClose = detectedLights.some(l => L.latLng(l.location.latitude, l.location.longitude).distanceTo(p2) < 150);
+                if (!isTooClose) {
+                    detectedLights.push({
+                        id: `sim-${i}`, name: `Simulated Signal`,
+                        location: { latitude: p2.lat, longitude: p2.lng },
+                        status: "RED", trafficDensity: "LOW"
+                    });
+                }
+                distAcc = 0;
+            }
+        }
+
+        log(`✅ Configured ${detectedLights.length} signals on route.`);
+        await apiCall('/traffic-lights/reset', 'POST');
+        if (detectedLights.length > 0) {
+            await apiCall('/traffic-lights/batch', 'POST', detectedLights);
+        }
+        fetchTraffic();
+    }
+
+    async function manualDetectLights() {
+        if (routeCoords.length > 0) {
+            await autoDetectLights();
+        } else {
+            alert("Please set Start and Destination first!");
+        }
+    }
+
+    async function manualStart() {
+        if (routeCoords.length === 0) {
+            alert("Please set Start and Destination first!");
+            return;
+        }
+        
+        if (detectedLights.length === 0) {
+            await autoDetectLights();
+        }
+        
+        // Send route to backend
+        await apiCall('/route', 'POST', routeCoords.map(c => ({ latitude: c.lat, longitude: c.lng })));
+        
+        if (window.innerWidth <= 768) toggleMenu(); // Hide menu on mobile to see map
+        
+        startSimulation();
+    }
+
+    function startSimulation() {
+        if (animId) cancelAnimationFrame(animId);
+        let idx = 0;
+        let progress = 0;
+        lastTime = performance.now();
+        lastNetworkTime = lastTime;
+
+        log(`🚀 Override Active. Commencing route.`);
+
+        // Force initial update to backend
+        if (routeCoords.length > 0) {
+            apiCall('/ambulance/location', 'POST', { latitude: routeCoords[0].lat, longitude: routeCoords[0].lng, timestamp: Date.now() });
+        }
+
+        function animate(timestamp) {
+            if (idx >= routeCoords.length - 1) {
+                document.getElementById('speedVal').innerText = "0 km/h";
+                log("🏁 Destination reached. Override terminated.");
+                return;
+            }
+
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            const speedKmh = currentDensity === "HIGH" ? 30 : 80;
+            document.getElementById('speedVal').innerText = speedKmh + " km/h";
+            
+            let distToMove = (speedKmh / 3.6) * (dt / 1000);
+
+            while (distToMove > 0 && idx < routeCoords.length - 1) {
+                const p1 = L.latLng(routeCoords[idx]);
+                const p2 = L.latLng(routeCoords[idx + 1]);
+                const segmentDist = p1.distanceTo(p2);
+                
+                if (segmentDist < 0.1) {
+                    idx++;
+                    progress = 0;
+                    continue;
+                }
+
+                const remainingDist = segmentDist * (1 - progress);
+
+                if (distToMove < remainingDist) {
+                    progress += distToMove / segmentDist;
+                    distToMove = 0;
+                } else {
+                    distToMove -= remainingDist;
+                    progress = 0;
+                    idx++;
+                }
+            }
+
+            if (idx < routeCoords.length - 1) {
+                const p1 = routeCoords[idx];
+                const p2 = routeCoords[idx + 1];
+                const lat = p1.lat + (p2.lat - p1.lat) * progress;
+                const lng = p1.lng + (p2.lng - p1.lng) * progress;
+
+                if (!ambulanceMarker) {
+                    const emoji = user.vehicleType === 'POLICE' ? '🚓' : (user.vehicleType === 'FIRE_TRUCK' ? '🚒' : '🚑');
+                    const icon = L.divIcon({ className: '', html: `<div class="ambulance-icon">${emoji}</div>`, iconSize: [30,30], iconAnchor: [15,15] });
+                    ambulanceMarker = L.marker([lat, lng], { icon: icon, zIndexOffset: 1000 }).addTo(map);
+                } else {
+                    ambulanceMarker.setLatLng([lat, lng]);
+                }
+                
+                map.setView([lat, lng], map.getZoom(), { animate: false });
+
+                // Throttle backend updates to ~1 second
+                if (timestamp - lastNetworkTime > 1000) {
+                    apiCall('/ambulance/location', 'POST', { latitude: lat, longitude: lng, timestamp: Date.now() });
+                    lastNetworkTime = timestamp;
+                }
+
+                animId = requestAnimationFrame(animate);
+            } else {
+                document.getElementById('speedVal').innerText = "0 km/h";
+                log("🏁 Destination reached.");
+            }
+        }
+        
+        animId = requestAnimationFrame(animate);
+    }
+
+    async function fetchTraffic() {
+        const lights = await apiCall('/traffic-lights');
+        if (lights && Array.isArray(lights)) {
+            detectedLights = lights;
+            updateUI();
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('lightCount').innerText = detectedLights.length;
+        const list = document.getElementById('traffic-list');
+        list.innerHTML = '';
+        
+        if (detectedLights.length === 0) {
+            list.innerHTML = '<div style="padding:20px; text-align:center; color:#70757a; font-size:13px;">No signals detected.</div>';
+            return;
+        }
+
+        detectedLights.forEach(light => {
+            const statusStr = light.status || 'RED';
+            const tmStr = light.overridden ? 'OVR' : (light.timer || 0) + 's';
+            const dotClass = `dot-${statusStr}`;
+            const iconClass = `icon-${statusStr}`;
+            
+            // Sidebar List Item
+            list.insertAdjacentHTML('beforeend', `
+                <div class="traffic-item">
+                    <div class="signal-indicator">
+                        <span class="traffic-dot ${dotClass}"></span>
+                        <span style="font-weight:500; font-size: 14px;">${light.name}</span>
+                    </div>
+                    <div class="timer-badge ${light.overridden ? 'override' : ''}">${tmStr}</div>
+                </div>
+            `);
+
+            // Map Marker
+            const iconHtml = `
+                <div class="map-signal-container">
+                    <div class="traffic-icon ${iconClass}"></div>
+                    <div class="map-timer" style="${light.overridden ? 'color:#8ab4f8; border-color:#8ab4f8;' : ''}">${tmStr}</div>
+                </div>
+            `;
+            const icon = L.divIcon({ className: 'leaflet-div-icon', html: iconHtml, iconSize: [40,40], iconAnchor: [20,20] });
+            
+            if (trafficMarkers[light.id]) {
+                trafficMarkers[light.id].setIcon(icon);
+            } else {
+                trafficMarkers[light.id] = L.marker([light.location.latitude, light.location.longitude], { icon: icon }).addTo(map).bindPopup(light.name);
+            }
+        });
+    }
+
+    function resetMap() {
+        if (startMarker) map.removeLayer(startMarker);
+        if (endMarker) map.removeLayer(endMarker);
+        if (ambulanceMarker) map.removeLayer(ambulanceMarker);
+        if (routingControl) map.removeControl(routingControl);
+        
+        Object.values(trafficMarkers).forEach(m => map.removeLayer(m));
+        
+        if (animId) cancelAnimationFrame(animId);
+        
+        startMarker = endMarker = ambulanceMarker = routingControl = null;
+        trafficMarkers = {};
+        routeCoords = [];
+        routeInsts = [];
+        detectedLights = [];
+        
+        document.getElementById('speedVal').innerText = "Auto";
+        document.getElementById('traffic-list').innerHTML = '<div style="padding:15px; text-align:center; color:#70757a; font-size:13px;">No traffic lights detected.</div>';
+        document.getElementById('lightCount').innerText = "0";
+        
+        log("Map reset.");
+        apiCall('/traffic-lights/reset', 'POST'); // Clear backend too
+    }
+
+    // --- Boot Sequence ---
+    checkAuth();
+    initMap();
+    pollInterval = setInterval(fetchTraffic, 1000); // Start background polling immediately
 </script>
+
 </body>
 </html>
