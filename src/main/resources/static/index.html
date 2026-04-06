@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Traffic Control</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -84,7 +84,8 @@
 <div id="toast"></div>
 
 <script>
-    const API = 'http://localhost:8080/api';
+    // Changed from http://localhost:8080/api to just /api so it works on deployed sites
+    const API = '/api'; 
     let map, routingControl, baseLayer, startMarker, endMarker, ambulanceMarker, animId, pollInterval;
     let routeCoords = [], routeInsts = [], detectedLights = [], trafficMarkers = {};
     let currentDensity = "LOW", isAddLightMode = false, user = JSON.parse(localStorage.getItem('currentUser'));
@@ -94,8 +95,32 @@
 
     const log = msg => document.getElementById('activity-log').insertAdjacentHTML('afterbegin', `<div class="log-entry">[${new Date().toLocaleTimeString()}] ${msg}</div>`);
     const showToast = msg => { const t = document.getElementById("toast"); t.innerText = msg; t.className = "show"; setTimeout(() => t.className = "", 3000); };
+    
+    // Better API Call function with error handling
     const apiCall = async (end, method='GET', body) => {
-        try { const r = await fetch(API+end, { method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : null }); return method==='GET'? await r.json() : null; } catch(e) {}
+        try { 
+            const r = await fetch(API+end, { 
+                method, 
+                headers: {'Content-Type': 'application/json'}, 
+                body: body ? JSON.stringify(body) : null 
+            }); 
+            
+            if (!r.ok) {
+                 log(`Server error: ${r.status}`);
+                 return null;
+            }
+            
+            // Only try to parse JSON if it's a GET request or we expect data back
+            if (method === 'GET' || end.includes('batch')) {
+                 const text = await r.text();
+                 return text ? JSON.parse(text) : null;
+            }
+            return null;
+        } catch(e) {
+            log(`Network Error connecting to server.`);
+            console.error(e);
+            return null;
+        }
     };
 
     function initMap() {
@@ -138,34 +163,63 @@
 
     async function autoDetectLights() {
         log("🔍 Scanning for traffic lights...");
-        const b = L.latLngBounds(routeCoords), query = `[out:json][timeout:25];(node["highway"="traffic_signals"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}););out body;`;
-        let lights = [];
+        const b = L.latLngBounds(routeCoords);
+        const query = `[out:json][timeout:25];(node["highway"="traffic_signals"](${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}););out body;`;
+        
+        let newLights = [];
         try {
-            const res = await (await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)).json();
-            lights = res.elements.filter(n => isNearRoute(L.latLng(n.lat, n.lon))).map(n => ({ id: `r-${n.id}`, name: `Signal ${n.id}`, location: {latitude: n.lat, longitude: n.lon}, status: "RED" }));
-        } catch (e) {}
+            const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            
+            data.elements.forEach(n => {
+               if(isNearRoute(L.latLng(n.lat, n.lon))) {
+                   newLights.push({ id: `r-${n.id}`, name: `Signal ${n.id}`, location: {latitude: n.lat, longitude: n.lon}, status: "RED" });
+               }
+            });
+        } catch (e) {
+            log("⚠️ Overpass API failed.");
+        }
 
-        routeInsts.forEach((inst, i) => {
-            if (['Right', 'Left', 'SharpRight', 'SharpLeft'].includes(inst.type) && routeCoords[inst.index]) {
-                const ll = routeCoords[inst.index];
-                if (!lights.some(l => L.latLng(l.location.latitude, l.location.longitude).distanceTo(ll) < 150))
-                    lights.push({ id: `i-${i}`, name: inst.road ? `Signal at ${inst.road}` : `Intersection ${i}`, location: {latitude: ll.lat, longitude: ll.lng}, status: "RED" });
-            }
-        });
+        // Add intersections
+        if(routeInsts) {
+            routeInsts.forEach((inst, i) => {
+                if (['Right', 'Left', 'SharpRight', 'SharpLeft'].includes(inst.type) && routeCoords[inst.index]) {
+                    const ll = routeCoords[inst.index];
+                    if (!newLights.some(l => L.latLng(l.location.latitude, l.location.longitude).distanceTo(ll) < 150)) {
+                        newLights.push({ id: `i-${i}`, name: inst.road ? `Signal at ${inst.road}` : `Intersection ${i}`, location: {latitude: ll.lat, longitude: ll.lng}, status: "RED" });
+                    }
+                }
+            });
+        }
 
-        detectedLights = lights;
-        log(lights.length ? `✅ Auto-configured ${lights.length} signals.` : "⚠️ No signals found.");
+        detectedLights = newLights;
+        log(detectedLights.length ? `✅ Configured ${detectedLights.length} signals.` : "⚠️ No signals found.");
+        
         await apiCall('/traffic-lights/reset', 'POST');
-        if (lights.length) await apiCall('/traffic-lights/batch', 'POST', lights);
+        if (detectedLights.length > 0) {
+            await apiCall('/traffic-lights/batch', 'POST', detectedLights);
+        }
+        
+        // Force immediate fetch to update UI
         fetchTraffic();
     }
 
     function isNearRoute(p) { return routeCoords.some(c => p.distanceTo(c) < 150); }
     
-    async function manualDetectLights() { routeCoords.length ? await autoDetectLights() : alert("Select Start/End points first!"); }
+    async function manualDetectLights() { 
+        if(routeCoords.length > 0) {
+            await autoDetectLights(); 
+        } else {
+            alert("Select Start/End points first!"); 
+        }
+    }
+    
     async function manualStart() {
-        if (!routeCoords.length || !detectedLights.length) return alert("Select route and detect lights first!");
-        await apiCall('/route', 'POST', routeCoords.map(c => ({latitude: c.lat, longitude: c.lng})));
+        if (!routeCoords.length || !detectedLights.length) {
+            alert("Select route and detect lights first!");
+            return;
+        }
+        // Instead of a /route endpoint which doesn't exist, just start moving
         startSimulation();
     }
 
@@ -177,8 +231,10 @@
     
     async function addCustomLight(ll) {
         detectedLights.push({ id: `c-${Date.now()}`, name: `Custom Signal`, location: {latitude: ll.lat, longitude: ll.lng}, status: "RED" });
-        await apiCall('/traffic-lights/reset', 'POST'); await apiCall('/traffic-lights/batch', 'POST', detectedLights);
-        toggleAddLightMode(); fetchTraffic();
+        await apiCall('/traffic-lights/reset', 'POST'); 
+        await apiCall('/traffic-lights/batch', 'POST', detectedLights);
+        toggleAddLightMode(); 
+        fetchTraffic();
     }
 
     function startSimulation() {
@@ -221,7 +277,10 @@
 
     async function fetchTraffic() {
         let lights = await apiCall('/traffic-lights');
-        if(lights) { detectedLights = lights; updateUI(); }
+        if(lights && Array.isArray(lights)) { 
+            detectedLights = lights; 
+            updateUI(); 
+        }
     }
 
     function updateUI() {
