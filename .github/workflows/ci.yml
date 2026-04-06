@@ -28,7 +28,7 @@ jobs:
       - name: Run Tests
         run: mvn test
 
-  # ==================== CD (Deploy to Railway) ====================
+  # ==================== CD (Deploy to Render) ====================
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -38,10 +38,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway
-        run: railway up --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Deploy to Render
+        # Render has its own auto-deploy mechanism linked directly to GitHub. 
+        # However, if you want to trigger a specific deploy hook, you can use curl.
+        # This requires setting a RENDER_DEPLOY_HOOK_URL secret in GitHub.
+        run: |
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+            echo "Triggered Render deployment via webhook."
+          else
+            echo "No RENDER_DEPLOY_HOOK_URL secret found. Assuming auto-deploy is configured in Render dashboard."
+          fi
